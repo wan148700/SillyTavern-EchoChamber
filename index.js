@@ -2499,14 +2499,14 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
             if (isAbort || userCancelled) {
                 // User cancelled - show toast notification, keep previous content
                 if (typeof toastr !== 'undefined') {
-                    toastr.info('Generation cancelled', 'EchoChamber');
+                    toastr.info('已取消生成', 'EchoChamber');
                 }
                 log('Generation cancelled by user');
             } else {
                 // Actual error occurred - show error toast, keep previous content
                 error('Generation failed:', err);
                 if (typeof toastr !== 'undefined') {
-                    toastr.error(err.message || 'Unknown error occurred', 'EchoChamber Generation Error');
+                    toastr.error(err.message || '未知错误', 'EchoChamber Generation Error');
                 }
             }
         }
@@ -2525,15 +2525,15 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
         'doomscrollers': 'doomscrollers.md', 'darkroast': 'darkroast.md', 'dumbanddumber': 'dumbanddumber.md', 'ao3wattpad': 'ao3wattpad.md'
     };
     const BUILT_IN_STYLES = [
-        { val: 'sillytavern', label: 'SillyTavern (Roleplay)' },
-        { val: 'sillytavern_story', label: 'SillyTavern (Story)' },
-        { val: 'twitch', label: 'Discord / Twitch' }, { val: 'verbose', label: 'Thoughtful' },
-        { val: 'twitter', label: 'Twitter / X' }, { val: 'news', label: 'Breaking News' },
-        { val: 'mst3k', label: 'MST3K' }, { val: 'nsfw_ava', label: 'Ava NSFW' },
-        { val: 'nsfw_kai', label: 'Kai NSFW' }, { val: 'hypebot', label: 'HypeBot' },
-        { val: 'doomscrollers', label: 'Doomscrollers' }, { val: 'darkroast', label: 'Dark Roast' },
-        { val: 'dumbanddumber', label: 'Dumb & Dumber' },
-        { val: 'ao3wattpad', label: 'AO3 / Wattpad' }
+        { val: 'sillytavern', label: '酒馆（角色扮演）' },
+        { val: 'sillytavern_story', label: '酒馆（小说）' },
+        { val: 'twitch', label: '弹幕直播间' }, { val: 'verbose', label: '深度长评' },
+        { val: 'twitter', label: '微博热搜' }, { val: 'news', label: '突发新闻' },
+        { val: 'mst3k', label: '毒舌吐槽' }, { val: 'nsfw_ava', label: 'Ava（18+）' },
+        { val: 'nsfw_kai', label: 'Kai（18+）' }, { val: 'hypebot', label: '气氛组机器人' },
+        { val: 'doomscrollers', label: '刷帖躺平族' }, { val: 'darkroast', label: '黑粉集中营' },
+        { val: 'dumbanddumber', label: '卧龙凤雏' },
+        { val: 'ao3wattpad', label: 'AO3 同人圈' }
     ];
 
     // Default order: SillyTavern styles first, then generic styles; nsfw at the bottom

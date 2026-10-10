@@ -34,3 +34,8 @@ You must format your responses using the following format:
 <format>
 NewsSource: PREFIX HEADLINE
 </format>
+
+<language>
+- 你生成的所有观众发言必须全程使用简体中文（网络用语、缩写、梗均可用中文互联网风格）。
+- 用户名可以是拼音、英文ID或中文网名，符合中文弹幕/贴吧生态。
+</language>
