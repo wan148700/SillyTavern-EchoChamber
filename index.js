@@ -5721,6 +5721,17 @@ username: message
 
         // Initialize - load settings FIRST so panel can use them
         loadSettings();
+        try {
+            if (!window.EchoChamberColors) {
+                await new Promise((resolve,reject) => {
+                    const script=document.createElement('script');
+                    script.src=BASE_URL+'/appearance.js?v=20261020-colors';
+                    script.onload=resolve; script.onerror=reject;
+                    document.head.append(script);
+                });
+            }
+            window.EchoChamberColors.start(settings,saveSettings);
+        } catch(err) { error('Appearance controls failed to load:',err); }
         renderPanel();
 
         // Toggle chat participation container based on loaded setting (must be after renderPanel)

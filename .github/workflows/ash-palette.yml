@@ -1,7 +1,7 @@
-name: Stray Birds palette
+name: EchoChamber appearance
 on:
   push:
-    paths: ['style.css', 'index.js', 'tests/check-theme.cjs', '.github/workflows/ash-palette.yml']
+    paths: ['style.css', 'index.js', 'appearance.js', 'tests/check-theme.cjs', '.github/workflows/ash-palette.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,6 +19,7 @@ jobs:
           npx playwright install --with-deps chromium
       - run: |
           node --check index.js
+          node --check appearance.js
           mkdir -p theme-validation
           node tests/check-theme.cjs
       - uses: actions/upload-artifact@v4

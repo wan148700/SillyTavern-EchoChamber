@@ -1,7 +1,9 @@
-# Stray Birds companion palette
+# Appearance settings for EchoChamber
 
-This fork adds an opt-in companion palette for 绾绾's Stray Birds theme, detected through body[data-ash-bird-compact="true"] from the existing phone theme compatibility script. Other themes retain the upstream colors.
+Open EchoChamber Settings → 配色 (also available in the extension settings). Default mode follows the current SillyTavern theme, including a matching fallback for the existing Stray Birds custom-CSS theme. Changes to theme tokens, custom CSS and theme selection update the palette automatically.
 
-The palette styles the comment panel, random audience identities, reply input, settings card, and style editor in fog white, sage, slate blue and mauve. User-configured avatar colors remain intact. EchoChamber opacity is passed through --ec-panel-opacity in its existing initialization and slider paths; no API, prompts, chat, generation or event behavior changes.
+Manual mode offers panel, card/input, text, secondary text, button/accent, border and audience-name colors. Color changes apply immediately and are saved with the existing discord_chat extension settings, preserving API settings, prompts and chat metadata. Switching modes preserves the manual palette. Copy current theme colors seeds manual mode; Reset manual colors restores the companion defaults. User-configured own-avatar colors remain intact. Existing opacity remains active.
 
-Restore the previous commit's style.css and index.js to undo. Keep the upstream license and author attribution. Browser checks cover text contrast, settings surfaces, opacity changes, and disabling the palette when switching themes.
+Implementation: appearance.js is loaded from the extension URL and initialized after loadSettings. CSS is scoped by body[data-ec-colors]; theme changes and newly opened settings modals are observed. Color values are validated before use. Upstream author and license are retained. Browser checks cover light/dark theme updates, manual edits, save serialization, switching modes, copy/reset, contrast and opacity.
+
+Phone backups are under ~/artifacts/echochamber-theme/. Restore the previous plugin commit to undo this feature.
