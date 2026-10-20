@@ -23,7 +23,7 @@ const {chromium}=require('playwright');
   const card=await get('.ecm_card');if(card.bg!=='rgb(245, 247, 243)')throw Error('dark modal persists');checks++;
   for(const s of ['.ecm_label','.ecm_header_title','.ecm_input','.ecm_hint','.ec_reply_input']){const c=await get(s);if(ratio(c.fg,card.bg)<4.5)throw Error('control contrast '+s);checks++}
   for(const alpha of [.4,.85]){
-   await p.locator('#discordBar').evaluate((e,a)=>e.style.setProperty('--ec-panel-opacity',a),String(alpha));const c=await get('#discordBar');if(Math.abs(Number(c.bg.match(/[\\d.]+/g).at(-1))-alpha)>.01)throw Error('opacity ignored '+c.bg);checks++;
+   await p.locator('#discordBar').evaluate((e,a)=>e.style.setProperty('--ec-panel-opacity',a),String(alpha));const c=await get('#discordBar');if(Math.abs((await p.locator('#discordBar').evaluate(e=>{const x=document.createElement('canvas').getContext('2d');x.fillStyle=getComputedStyle(e).backgroundColor;x.fillRect(0,0,1,1);return x.getImageData(0,0,1,1).data[3]/255}))-alpha)>.01)throw Error('opacity ignored '+c.bg);checks++;
   }
 
   const mode=p.locator('[data-ec-color-mode]').first();

@@ -4506,3 +4506,8 @@ body[data-ec-colors] :is(.ec_colors_settings,.ec_colors_settings fieldset){color
 .ec_colors_preview{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px;background:var(--ec-palette-surface);border:1px solid var(--ec-palette-border);border-radius:6px;color:var(--ec-palette-text)}
 .ec_colors_preview_name{color:var(--ec-palette-name);font-weight:bold}
 .ec_colors_preview button:disabled{opacity:1;color:var(--ec-palette-accent)!important}
+
+/* Settings must sit above the docked/floating comment panel on mobile, too. */
+body[data-ec-colors] #ec_settings_modal{z-index:300010!important}
+body[data-ec-colors] .ec_modal_overlay{z-index:300020!important}
+body[data-ec-colors] #ec_confirm_modal{z-index:300030!important}
