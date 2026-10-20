@@ -6,7 +6,7 @@
             const sync = () => {
                 for (const el of doc.querySelectorAll('[data-ec-cost-field]')) {
                     if (doc.activeElement !== el) el.value = settings[el.dataset.ecCostField] || (el.dataset.ecCostField === 'requestMaxTokens' ? 2048 : (settings.lastContinuousBatchLimit || 3));
-                    if (el.dataset.ecCostField === 'continuousBatchLimit') el.closest('label').hidden = settings.continuousBatchLimit === 0;
+                    if (el.dataset.ecCostField === 'continuousBatchLimit') el.closest('label').style.display = settings.continuousBatchLimit === 0 ? 'none' : 'block';
                 }
                 for (const el of doc.querySelectorAll('[data-ec-cost-mode]')) el.value = settings.continuousBatchLimit === 0 ? 'unlimited' : 'limited';
             };
