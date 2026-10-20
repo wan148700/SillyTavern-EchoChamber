@@ -23,7 +23,7 @@
                 <div class="ec-s-section">
                     <button class="ec-s-section-header" aria-expanded="false" type="button">
                         <span class="ec-s-section-title">
-                            <i class="fa-solid fa-microchip"></i> Generation Engine
+                            <i class="fa-solid fa-microchip"></i> 弹幕接口与模型
                         </span>
                         <i class="ec-s-chevron fa-solid fa-chevron-down"></i>
                     </button>
@@ -31,13 +31,13 @@
 
                         <div class="ec-s-field-group">
                             <label class="ec-s-field-label" for="discord_source">
-                                <i class="fa-solid fa-plug"></i> Source
+                                <i class="fa-solid fa-plug"></i> 弹幕模型来源
                             </label>
                             <select id="discord_source" class="text_pole ec-s-select">
-                                <option value="default">Default (Main API)</option>
-                                <option value="profile">Connection Profile (Recommended)</option>
-                                <option value="ollama">Ollama (Local)</option>
-                                <option value="openai">OpenAI Compatible</option>
+                                <option value="default">跟随正文接口（可能费用较高）</option>
+                                <option value="profile">选择酒馆连接配置（推荐）</option>
+                                <option value="ollama">Ollama（本地模型）</option>
+                                <option value="openai">独立接口（兼容 OpenAI）</option>
                             </select>
                         </div>
 
@@ -48,7 +48,7 @@
                                 <i class="fa-solid fa-terminal"></i> Ollama
                             </div>
                             <input id="discord_url" type="text" class="text_pole ec-s-input"
-                                placeholder="http://localhost:11434" title="Ollama API endpoint">
+                                placeholder="http://localhost:11434" title="Ollama 接口地址">
                             <select id="discord_model_select" class="text_pole ec-s-select"></select>
                             <div id="discord_ollama_status" class="ec-s-status-note"></div>
                         </div>
@@ -57,32 +57,32 @@
                         <div id="discord_openai_settings" class="ec-s-sub-panel ec-s-sub-panel--openai"
                             style="display:none">
                             <div class="ec-s-sub-panel-title">
-                                <i class="fa-solid fa-cloud"></i> OpenAI Compatible
+                                <i class="fa-solid fa-cloud"></i> 独立接口（兼容 OpenAI）
                             </div>
                             <select id="discord_openai_preset" class="text_pole ec-s-select">
-                                <option value="custom">Custom</option>
+                                <option value="custom">自定义</option>
                                 <option value="lmstudio">LM Studio (:1234)</option>
                                 <option value="kobold">KoboldCPP (:5001)</option>
                                 <option value="textgen">TextGenWebUI (:5000)</option>
                                 <option value="vllm">vLLM (:8000)</option>
                             </select>
                             <input id="discord_openai_url" type="text" class="text_pole ec-s-input"
-                                placeholder="http://localhost:1234/v1" title="API endpoint URL">
+                                placeholder="http://localhost:1234/v1" title="接口地址（通常以 /v1 结尾）">
                             <input id="discord_openai_key" type="password" class="text_pole ec-s-input"
-                                placeholder="API Key (Optional)" title="API Key (if required)">
+                                placeholder="API 密钥（按服务商要求填写）" title="API 密钥（按需填写）">
                             <input id="discord_openai_model" type="text" class="text_pole ec-s-input"
-                                placeholder="Model name" title="Model identifier">
+                                placeholder="模型 ID" title="模型 ID（按服务商填写）">
                         </div>
 
                         <!-- Provider: Connection Profile -->
                         <div id="discord_profile_settings" class="ec-s-sub-panel ec-s-sub-panel--profile"
                             style="display:none">
                             <div class="ec-s-sub-panel-title">
-                                <i class="fa-solid fa-link"></i> Connection Profile
+                                <i class="fa-solid fa-link"></i> 选择酒馆连接配置（独立模型）
                             </div>
                             <select id="discord_preset_select" class="text_pole ec-s-select"></select>
                             <div class="ec-s-hint">
-                                <i class="fa-solid fa-shield-halved"></i> Uses your existing ST credentials securely.
+                                <i class="fa-solid fa-shield-halved"></i> 使用所选连接配置保存的接口与模型，不切换正文模型；请先在酒馆保存一份便宜模型的连接配置。
                             </div>
                         </div>
 
@@ -93,7 +93,7 @@
                 <div class="ec-s-section" data-default-open>
                     <button class="ec-s-section-header" aria-expanded="false" type="button">
                         <span class="ec-s-section-title">
-                            <i class="fa-solid fa-sliders"></i> Display
+                            <i class="fa-solid fa-sliders"></i> 显示
                         </span>
                         <i class="ec-s-chevron fa-solid fa-chevron-down"></i>
                     </button>
@@ -103,34 +103,34 @@
                         <div class="ec-s-grid-2">
                             <div class="ec-s-field-group">
                                 <label class="ec-s-field-label" for="discord_style">
-                                    <i class="fa-solid fa-palette"></i> Style
+                                    <i class="fa-solid fa-palette"></i> 弹幕风格
                                 </label>
                                 <select id="discord_style" class="text_pole ec-s-select">
-                                    <option value="twitch">Discord/Twitch</option>
-                                    <option value="verbose">Thoughtful</option>
-                                    <option value="twitter">Twitter/X</option>
-                                    <option value="news">Breaking News</option>
-                                    <option value="mst3k">MST3K</option>
-                                    <option value="nsfw_ava">Ava NSFW</option>
-                                    <option value="nsfw_kai">Kai NSFW</option>
-                                    <option value="hypebot">HypeBot</option>
-                                    <option value="doomscrollers">Doomscrollers</option>
-                                    <option value="darkroast">Dark Roast</option>
-                                    <option value="dumbanddumber">Dumb &amp; Dumber</option>
-                                    <option value="ao3wattpad">AO3 / Wattpad</option>
-                                    <option value="custom">Custom</option>
+                                    <option value="twitch">弹幕直播间</option>
+                                    <option value="verbose">深度长评</option>
+                                    <option value="twitter">微博热搜</option>
+                                    <option value="news">突发新闻</option>
+                                    <option value="mst3k">毒舌吐槽</option>
+                                    <option value="nsfw_ava">Ava（18+）</option>
+                                    <option value="nsfw_kai">Kai（18+）</option>
+                                    <option value="hypebot">气氛组机器人</option>
+                                    <option value="doomscrollers">刷帖躺平族</option>
+                                    <option value="darkroast">黑粉集中营</option>
+                                    <option value="dumbanddumber">卧龙凤雏</option>
+                                    <option value="ao3wattpad">AO3 同人圈</option>
+                                    <option value="custom">自定义</option>
                                 </select>
                             </div>
                             <div class="ec-s-field-group">
                                 <label class="ec-s-field-label" for="discord_position">
-                                    <i class="fa-solid fa-arrows-up-down-left-right"></i> Position
+                                    <i class="fa-solid fa-arrows-up-down-left-right"></i> 停靠位置
                                 </label>
                                 <select id="discord_position" class="text_pole ec-s-select">
-                                    <option value="bottom">Bottom</option>
-                                    <option value="top">Top</option>
-                                    <option value="left">Left</option>
-                                    <option value="right">Right</option>
-                                    <option value="popout">↗ Pop Out</option>
+                                    <option value="bottom">底部</option>
+                                    <option value="top">顶部</option>
+                                    <option value="left">左侧</option>
+                                    <option value="right">右侧</option>
+                                    <option value="popout">↗ 悬浮窗口</option>
                                 </select>
                             </div>
                         </div>
@@ -139,11 +139,11 @@
                         <div class="ec-s-grid-2">
                             <div class="ec-s-field-group">
                                 <label class="ec-s-field-label" for="discord_message_order">
-                                    <i class="fa-solid fa-arrow-down-up-across-line"></i> Message Order
+                                    <i class="fa-solid fa-arrow-down-up-across-line"></i> 消息顺序
                                 </label>
                                 <select id="discord_message_order" class="text_pole ec-s-select">
-                                    <option value="oldest-first">Oldest at top, newest at bottom</option>
-                                    <option value="newest-first">Newest at top, oldest at bottom</option>
+                                    <option value="oldest-first">旧消息在上，新消息在下</option>
+                                    <option value="newest-first">新消息在上，旧消息在下</option>
                                 </select>
                             </div>
                         </div>
@@ -152,21 +152,21 @@
                         <div class="ec-s-grid-3">
                             <div class="ec-s-field-group">
                                 <label class="ec-s-field-label" for="discord_user_count">
-                                    <i class="fa-solid fa-users"></i> Users
+                                    <i class="fa-solid fa-users"></i> 弹幕条数
                                 </label>
                                 <input id="discord_user_count" type="number" class="text_pole ec-s-input-num" min="1"
-                                    max="20" value="5" title="Number of fake users (1-20)">
+                                    max="20" value="5" title="每批弹幕条数（1～20）">
                             </div>
                             <div class="ec-s-field-group">
                                 <label class="ec-s-field-label" for="discord_font_size">
                                     <i class="fa-solid fa-font"></i> Font (px)
                                 </label>
                                 <input id="discord_font_size" type="number" class="text_pole ec-s-input-num" min="8"
-                                    max="32" value="15" title="Font size in pixels">
+                                    max="32" value="15" title="字号（像素）">
                             </div>
                             <div class="ec-s-field-group">
                                 <label class="ec-s-field-label" for="discord_opacity">
-                                    <i class="fa-solid fa-eye"></i> Opacity
+                                    <i class="fa-solid fa-eye"></i> 不透明度
                                 </label>
                                 <div class="ec-s-slider-row">
                                     <input id="discord_opacity" type="range" class="slider ec-s-slider" min="10"
@@ -183,7 +183,7 @@
                 <div class="ec-s-section" data-default-open>
                     <button class="ec-s-section-header" aria-expanded="false" type="button">
                         <span class="ec-s-section-title">
-                            <i class="fa-solid fa-gear"></i> Content Settings
+                            <i class="fa-solid fa-gear"></i> 上下文设置
                         </span>
                         <i class="ec-s-chevron fa-solid fa-chevron-down"></i>
                     </button>
@@ -193,7 +193,7 @@
                         <label class="ec-s-toggle-row" for="discord_auto_update">
                             <input id="discord_auto_update" type="checkbox" class="checkbox">
                             <span class="ec-s-label-text">
-                                <i class="fa-solid fa-sync"></i> Auto-update On Messages
+                                <i class="fa-solid fa-sync"></i> 正文回复后自动生成一批
                             </span>
                         </label>
 
@@ -201,13 +201,13 @@
                         <label class="ec-s-toggle-row" for="discord_include_user">
                             <input id="discord_include_user" type="checkbox" class="checkbox">
                             <span class="ec-s-label-text">
-                                <i class="fa-solid fa-comments"></i> Include Chat History
+                                <i class="fa-solid fa-comments"></i> 包含聊天历史
                             </span>
                         </label>
                         <div id="discord_context_depth_container" class="ec-s-sub-field" style="display:none">
-                            <label class="ec-s-field-label" for="discord_context_depth">Context Depth</label>
+                            <label class="ec-s-field-label" for="discord_context_depth">读取最近消息数</label>
                             <input id="discord_context_depth" type="number" class="text_pole ec-s-input-num" min="2"
-                                max="20" value="4" title="Number of messages to include">
+                                max="20" value="4" title="读取最近多少条正文消息">
                         </div>
 
                         <!-- Include Past EchoChambers -->
@@ -224,41 +224,41 @@
                         <!-- Include in Context sub-group -->
                         <div class="ec-s-context-sub">
                             <div class="ec-s-context-sub-title">
-                                <i class="fa-solid fa-file-lines"></i> Include in Context
+                                <i class="fa-solid fa-file-lines"></i> 附加到弹幕上下文
                             </div>
 
                             <label class="ec-s-toggle-row" for="discord_include_persona">
                                 <input id="discord_include_persona" type="checkbox" class="checkbox">
                                 <span class="ec-s-label-text">
-                                    <i class="fa-solid fa-face-smile"></i> Persona
+                                    <i class="fa-solid fa-face-smile"></i> 用户设定
                                 </span>
                             </label>
 
                             <label class="ec-s-toggle-row" for="discord_include_authors_note">
                                 <input id="discord_include_authors_note" type="checkbox" class="checkbox">
                                 <span class="ec-s-label-text">
-                                    <i class="fa-solid fa-pen-nib"></i> Author's Note
+                                    <i class="fa-solid fa-pen-nib"></i> 作者注释
                                 </span>
                             </label>
 
                             <label class="ec-s-toggle-row" for="discord_include_character_description">
                                 <input id="discord_include_character_description" type="checkbox" class="checkbox">
                                 <span class="ec-s-label-text">
-                                    <i class="fa-solid fa-address-card"></i> Character Description(s)
+                                    <i class="fa-solid fa-address-card"></i> 角色描述
                                 </span>
                             </label>
 
                             <label class="ec-s-toggle-row" for="discord_include_summary">
                                 <input id="discord_include_summary" type="checkbox" class="checkbox">
                                 <span class="ec-s-label-text">
-                                    <i class="fa-solid fa-scroll"></i> Summary (from Summarize ext.)
+                                    <i class="fa-solid fa-scroll"></i> 聊天摘要（摘要扩展）
                                 </span>
                             </label>
 
                             <label class="ec-s-toggle-row" for="discord_include_world_info">
                                 <input id="discord_include_world_info" type="checkbox" class="checkbox">
                                 <span class="ec-s-label-text">
-                                    <i class="fa-solid fa-globe"></i> World Info / Lorebook
+                                    <i class="fa-solid fa-globe"></i> 世界书
                                 </span>
                             </label>
 
@@ -269,13 +269,13 @@
                             <!-- WI Budget -->
                             <div id="discord_wi_budget_container" class="ec-s-sub-field" style="display:none">
                                 <label class="ec-s-field-label" for="discord_wi_budget">
-                                    <i class="fa-solid fa-coins"></i> WI Token Budget
+                                    <i class="fa-solid fa-coins"></i> 世界书 Token 预算
                                 </label>
                                 <div class="ec-s-inline-pair">
                                     <input id="discord_wi_budget" type="number" class="text_pole ec-s-input-num" min="0"
                                         max="200000" step="1000" value="0"
-                                        title="Max tokens for lorebook entries. 0 = use SillyTavern's own budget (recommended).">
-                                    <span class="ec-s-hint">0 = use ST budget</span>
+                                        title="世界书最大 Token 数，0 表示使用酒馆预算。内容越多，输入费用可能越高。">
+                                    <span class="ec-s-hint">0 表示使用酒馆预算</span>
                                 </div>
                             </div>
                         </div>
@@ -287,7 +287,7 @@
                 <div class="ec-s-section">
                     <button class="ec-s-section-header" aria-expanded="false" type="button">
                         <span class="ec-s-section-title">
-                            <i class="fa-solid fa-tower-broadcast"></i> Livestream
+                            <i class="fa-solid fa-tower-broadcast"></i> 逐条播放与刷新
                         </span>
                         <i class="ec-s-chevron fa-solid fa-chevron-down"></i>
                     </button>
@@ -296,7 +296,7 @@
                         <label class="ec-s-toggle-row" for="discord_livestream">
                             <input id="discord_livestream" type="checkbox" class="checkbox">
                             <span class="ec-s-label-text">
-                                <i class="fa-solid fa-tower-broadcast"></i> Enable Livestream Mode
+                                <i class="fa-solid fa-tower-broadcast"></i> 启用弹幕逐条播放
                             </span>
                         </label>
                         <div class="ec-s-hint ec-s-hint--indent">
@@ -309,7 +309,7 @@
                             <label class="ec-s-toggle-row" for="discord_livestream_auto_scroll">
                                 <input id="discord_livestream_auto_scroll" type="checkbox" class="checkbox" checked>
                                 <span class="ec-s-label-text">
-                                    <i class="fa-solid fa-angles-down"></i> Auto-scroll to Latest Message
+                                    <i class="fa-solid fa-angles-down"></i> 自动滚动到最新弹幕
                                 </span>
                             </label>
                             <div class="ec-s-hint ec-s-hint--indent">
@@ -319,11 +319,11 @@
                             <div class="ec-s-grid-2">
                                 <div class="ec-s-field-group">
                                     <label class="ec-s-field-label" for="discord_livestream_batch_size">
-                                        <i class="fa-solid fa-boxes-stacked"></i> Batch Size
+                                        <i class="fa-solid fa-boxes-stacked"></i> 每批弹幕条数
                                     </label>
                                     <input id="discord_livestream_batch_size" type="number"
                                         class="text_pole ec-s-input-num" min="5" max="50" value="20"
-                                        title="Number of messages to generate per batch">
+                                        title="一次请求生成的弹幕条数">
                                 </div>
                                 <div class="ec-s-field-group">
                                     <!-- spacer -->
@@ -333,35 +333,35 @@
                             <div class="ec-s-grid-2">
                                 <div class="ec-s-field-group">
                                     <label class="ec-s-field-label" for="discord_livestream_min_wait">
-                                        <i class="fa-solid fa-clock"></i> Min Wait (s)
+                                        <i class="fa-solid fa-clock"></i> 逐条显示最短间隔（秒）
                                     </label>
                                     <input id="discord_livestream_min_wait" type="number"
                                         class="text_pole ec-s-input-num" min="1" max="120" value="5"
-                                        title="Minimum seconds to wait between messages">
+                                        title="逐条显示的最短间隔；这一过程不会逐条调用模型">
                                 </div>
                                 <div class="ec-s-field-group">
                                     <label class="ec-s-field-label" for="discord_livestream_max_wait">
-                                        <i class="fa-solid fa-clock"></i> Max Wait (s)
+                                        <i class="fa-solid fa-clock"></i> 逐条显示最长间隔（秒）
                                     </label>
                                     <input id="discord_livestream_max_wait" type="number"
                                         class="text_pole ec-s-input-num" min="1" max="300" value="60"
-                                        title="Maximum seconds to wait between messages">
+                                        title="逐条显示的最长间隔；不等于接口请求间隔">
                                 </div>
                             </div>
 
                             <div class="ec-s-field-group">
                                 <div class="ec-s-field-label">
-                                    <i class="fa-solid fa-clapperboard"></i> Generation Mode
+                                    <i class="fa-solid fa-clapperboard"></i> 何时调用模型生成新一批
                                 </div>
                                 <label class="ec-s-toggle-row ec-s-radio-row" for="discord_livestream_manual">
                                     <input type="radio" name="discord_livestream_mode" value="manual" class="radio"
                                         id="discord_livestream_manual" checked>
-                                    <span class="ec-s-label-text">Manual Upon Clicking Regenerate Chat</span>
+                                    <span class="ec-s-label-text">仅点击“重新生成弹幕”时生成</span>
                                 </label>
                                 <label class="ec-s-toggle-row ec-s-radio-row" for="discord_livestream_onmessage">
                                     <input type="radio" name="discord_livestream_mode" value="onMessage" class="radio"
                                         id="discord_livestream_onmessage">
-                                    <span class="ec-s-label-text">Generate Upon Receiving A New Message</span>
+                                    <span class="ec-s-label-text">正文回复后生成一批</span>
                                 </label>
                                 <label class="ec-s-toggle-row ec-s-radio-row" for="discord_livestream_oncomplete">
                                     <input type="radio" name="discord_livestream_mode" value="onComplete" class="radio"
@@ -380,7 +380,7 @@
                 <div class="ec-s-section">
                     <button class="ec-s-section-header" aria-expanded="false" type="button">
                         <span class="ec-s-section-title">
-                            <i class="fa-solid fa-reply"></i> Chat Participation
+                            <i class="fa-solid fa-reply"></i> 参与弹幕
                         </span>
                         <i class="ec-s-chevron fa-solid fa-chevron-down"></i>
                     </button>
@@ -389,7 +389,7 @@
                         <label class="ec-s-toggle-row" for="discord_chat_enabled">
                             <input id="discord_chat_enabled" type="checkbox" class="checkbox">
                             <span class="ec-s-label-text">
-                                <i class="fa-solid fa-reply"></i> Enable Chat Participation
+                                <i class="fa-solid fa-reply"></i> 启用发送弹幕
                             </span>
                         </label>
                         <div class="ec-s-hint ec-s-hint--indent">
@@ -399,26 +399,26 @@
 
                         <div class="ec-s-field-group">
                             <label class="ec-s-field-label" for="discord_chat_username">
-                                <i class="fa-solid fa-user"></i> Your Username
+                                <i class="fa-solid fa-user"></i> 你的弹幕昵称
                             </label>
                             <input id="discord_chat_username" type="text" class="text_pole ec-s-input"
-                                placeholder="Streamer (You)">
+                                placeholder="主播（你）">
                         </div>
 
                         <div class="ec-s-field-group">
                             <label class="ec-s-field-label" for="discord_chat_avatar_color">
-                                <i class="fa-solid fa-circle"></i> Avatar Color
+                                <i class="fa-solid fa-circle"></i> 头像颜色
                             </label>
                             <div class="ec-s-color-row">
                                 <input id="discord_chat_avatar_color" type="color" class="ec-s-color-input"
                                     value="#3b82f6">
-                                <span class="ec-s-hint">Color of your avatar circle in the chat</span>
+                                <span class="ec-s-hint">你的弹幕头像颜色</span>
                             </div>
                         </div>
 
                         <div class="ec-s-field-group">
                             <label class="ec-s-field-label" for="discord_chat_reply_count">
-                                <i class="fa-solid fa-comments"></i> AI Replies per Comment
+                                <i class="fa-solid fa-comments"></i> 每次发言的 AI 回复数
                             </label>
                             <input id="discord_chat_reply_count" type="number" class="text_pole ec-s-input" min="1"
                                 max="12" value="3">
@@ -437,10 +437,10 @@
                                 </span>
                             </label>
                             <div id="discord_chat_max_tokens_container" class="ec-s-sub-field" style="display:none">
-                                <label class="ec-s-field-label" for="discord_chat_max_tokens">Custom Max Tokens</label>
+                                <label class="ec-s-field-label" for="discord_chat_max_tokens">自定义回复 Token 上限</label>
                                 <input id="discord_chat_max_tokens" type="number" class="text_pole ec-s-input-num"
                                     min="10" max="8192" value="3000"
-                                    title="Max generation tokens for chat participation">
+                                    title="参与弹幕时的回复 Token 上限">
                             </div>
                             <div class="ec-s-hint ec-s-hint--indent">
                                 If unchecked, uses SillyTavern's default Response Length setting. Use this if your AI
@@ -455,7 +455,7 @@
                 <div class="ec-s-section">
                     <button class="ec-s-section-header" aria-expanded="false" type="button">
                         <span class="ec-s-section-title">
-                            <i class="fa-solid fa-folder-tree"></i> Style Manager
+                            <i class="fa-solid fa-folder-tree"></i> 风格管理
                         </span>
                         <i class="ec-s-chevron fa-solid fa-chevron-down"></i>
                     </button>
@@ -466,7 +466,7 @@
                                 <i class="fa-solid fa-palette"></i> Manage
                             </button>
                             <button id="discord_import_btn" class="menu_button">
-                                <i class="fa-solid fa-file-import"></i> Import
+                                <i class="fa-solid fa-file-import"></i> 导入
                             </button>
                         </div>
                         <input type="file" id="discord_import_file" accept=".md" style="display:none;">

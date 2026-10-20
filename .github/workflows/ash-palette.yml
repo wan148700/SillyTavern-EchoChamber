@@ -1,7 +1,7 @@
 name: EchoChamber appearance
 on:
   push:
-    paths: ['style.css', 'index.js', 'appearance.js', 'tests/check-theme.cjs', '.github/workflows/ash-palette.yml']
+    paths: ['style.css', 'index.js', 'appearance.js', 'cost-controls.js', 'settings.html', 'tests/**', '.github/workflows/ash-palette.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,10 +20,14 @@ jobs:
       - run: |
           node --check index.js
           node --check appearance.js
+          node --check cost-controls.js
+          node tests/check-generation.cjs
           mkdir -p theme-validation
           node tests/check-theme.cjs
+          node tests/check-settings.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: echochamber-palette-preview
           path: theme-validation/
+

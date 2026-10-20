@@ -1,4 +1,4 @@
-﻿// EchoChamber Extension - Import-free version using SillyTavern.getContext()
+// EchoChamber Extension - Import-free version using SillyTavern.getContext()
 // No ES6 imports - uses the stable SillyTavern global object
 
 (function () {
@@ -20,8 +20,10 @@
 
     const defaultSettings = {
         enabled: true,
+        requestMaxTokens: 2048,
+        continuousBatchLimit: 3,
         paused: false,
-        source: 'default',
+        source: 'profile',
         preset: '',
         url: 'http://localhost:11434',
         model: '',
@@ -110,8 +112,8 @@
                     </div>
                     <div class="ec_confirm_modal_message">${message}</div>
                     <div class="ec_confirm_modal_actions">
-                        <button class="ec_confirm_modal_btn ec_confirm_cancel" id="ec_confirm_cancel">Cancel</button>
-                        <button class="ec_confirm_modal_btn ec_confirm_ok" id="ec_confirm_ok">Clear</button>
+                        <button class="ec_confirm_modal_btn ec_confirm_cancel" id="ec_confirm_cancel">取消</button>
+                        <button class="ec_confirm_modal_btn ec_confirm_ok" id="ec_confirm_ok">清空</button>
                     </div>
                 </div>
             </div>`;
@@ -158,10 +160,10 @@
     function updateReplyButtonState(isGen) {
         const btns = jQuery('#ec_reply_submit, #ec_float_reply_submit');
         if (isGen) {
-            btns.addClass('ec_reply_stop').attr('title', 'Stop action (cancel generation)');
+            btns.addClass('ec_reply_stop').attr('title', '停止当前生成');
             btns.html('<i class="fa-solid fa-hourglass"></i>');
         } else {
-            btns.removeClass('ec_reply_stop').attr('title', 'Send message');
+            btns.removeClass('ec_reply_stop').attr('title', '发送弹幕');
             btns.html('<i class="fa-solid fa-paper-plane"></i>');
         }
     }
@@ -172,14 +174,14 @@
         if (abortController) {
             log('Aborting generation...');
             userCancelled = true;
-            jQuery('#ec_cancel_btn').html('<i class="fa-solid fa-hourglass"></i> Stopping...').css('pointer-events', 'none');
+            jQuery('#ec_cancel_btn').html('<i class="fa-solid fa-hourglass"></i> 正在停止…').css('pointer-events', 'none');
             jQuery('.ec_reply_stop').html('<i class="fa-solid fa-hourglass"></i>');
             abortController.abort();
             log('AbortController.abort() called, signal.aborted:', abortController.signal.aborted);
 
             // Also trigger SillyTavern's built-in stop generation
             const stopButton = jQuery('#mes_stop');
-            if (stopButton.length && !stopButton.is('.disabled')) {
+            if (settings.source === 'default' && stopButton.length && !stopButton.is('.disabled')) {
                 log('Triggering SillyTavern stop button');
                 stopButton.trigger('click');
             }
@@ -187,7 +189,7 @@
             log('No abortController, showing cancel message');
             userCancelled = true;
             setStatus('');
-            setDiscordText(`<div class="discord_status ec_cancelled"><i class="fa-solid fa-hand"></i> Processing cancelled</div>`);
+            setDiscordText(`<div class="discord_status ec_cancelled"><i class="fa-solid fa-hand"></i> 已取消生成</div>`);
             setTimeout(() => {
                 const cancelledMsg = jQuery('.ec_cancelled');
                 if (cancelledMsg.length) {
@@ -563,6 +565,7 @@
 
     function onChatEvent(clear, autoGenerate = true) {
         if (clear) {
+            continuousRefills = 0;
             setDiscordText('');
             clearCachedCommentary();
             stopLivestream();
@@ -577,6 +580,7 @@
                 // New ST turn always triggers a fresh EchoChamber batch.
                 // generateDiscordChat → startLivestream will call stopLivestream() first,
                 // cleanly interrupting any in-progress drip and replacing it with new content.
+                continuousRefills = 0;
                 generateDebounced();
             } else if (!settings.livestream) {
                 // Regular mode
@@ -844,6 +848,12 @@
             // If in onComplete mode, trigger next batch generation
             if (settings.livestream && settings.livestreamMode === 'onComplete') {
                 log('Livestream onComplete mode: triggering next batch');
+                if (continuousRefills >= echoBatchLimit(settings.continuousBatchLimit)) {
+                    if (typeof toastr !== 'undefined') toastr.info('本轮自动续批已达上限，已停止调用。点击重新生成可开始新一轮。', '弹幕省钱控制');
+                    updateLiveIndicator();
+                    return;
+                }
+                continuousRefills++;
                 generateDebounced();
             }
             return;
@@ -1117,8 +1127,8 @@
         const chatInputHtml = settings.chatEnabled ? `
             <div class="ec_reply_container ec_float_reply_bar" id="ec_float_reply_bar">
                 <div class="ec_reply_wrapper">
-                    <input type="text" class="ec_reply_input" placeholder="Type a message to participate..." id="ec_float_reply_field">
-                    <div class="ec_reply_send" id="ec_float_reply_submit" title="Send message"><i class="fa-solid fa-paper-plane"></i></div>
+                    <input type="text" class="ec_reply_input" placeholder="发一条弹幕参与聊天…" id="ec_float_reply_field">
+                    <div class="ec_reply_send" id="ec_float_reply_submit" title="发送弹幕"><i class="fa-solid fa-paper-plane"></i></div>
                 </div>
             </div>` : '';
 
@@ -1130,11 +1140,11 @@
                 <div class="ec_float_header_left">
                     <span class="ec_float_title">EchoChamber</span>
                     <div class="ec_live_indicator" id="ec_float_live_indicator">
-                        <i class="fa-solid fa-circle"></i> LIVE
+                        <i class="fa-solid fa-circle"></i> 播放
                     </div>
                 </div>
                 <div class="ec_float_header_right">
-                    <div class="ec_float_btn" id="ec_float_dock_btn" title="Dock — close floating panel">
+                    <div class="ec_float_btn" id="ec_float_dock_btn" title="停靠并关闭悬浮窗口">
                         <i class="fa-solid fa-arrow-up-right-from-square" style="transform:rotate(180deg)"></i>
                     </div>
                 </div>
@@ -1143,29 +1153,29 @@
             <!-- Row 2: toolbar — style selector left (50%), icon buttons right (50%) -->
             <div class="ec_float_toolbar">
                 <div class="ec_float_toolbar_left">
-                    <div class="ec_btn ec_float_style_btn" id="ec_float_style_indicator" title="Change Style">
+                    <div class="ec_btn ec_float_style_btn" id="ec_float_style_indicator" title="切换风格">
                         <i class="fa-solid fa-masks-theater"></i>
-                        <span class="ec_float_style_label">Style</span>
+                        <span class="ec_float_style_label">弹幕风格</span>
                         <i class="fa-solid fa-caret-down ec_dropdown_arrow"></i>
                         <div class="ec_popup_menu ec_style_menu ec_float_style_menu"></div>
                     </div>
                 </div>
                 <div class="ec_float_toolbar_right">
-                    <div class="ec_btn ec_float_tool" title="Regenerate Chat">
+                    <div class="ec_btn ec_float_tool" title="重新生成弹幕">
                         <i class="fa-solid fa-rotate-right"></i>
                     </div>
-                    <div class="ec_btn ec_float_tool" title="User Count">
+                    <div class="ec_btn ec_float_tool" title="弹幕条数">
                         <i class="fa-solid fa-users"></i>
                         <div class="ec_popup_menu ec_user_menu"></div>
                     </div>
-                    <div class="ec_btn ec_float_tool" title="Font Size">
+                    <div class="ec_btn ec_float_tool" title="字号">
                         <i class="fa-solid fa-font"></i>
                         <div class="ec_popup_menu ec_font_menu"></div>
                     </div>
-                    <div class="ec_btn ec_float_tool" title="Clear Chat &amp; Cache">
+                    <div class="ec_btn ec_float_tool" title="清空弹幕与缓存">
                         <i class="fa-solid fa-trash-can"></i>
                     </div>
-                    <div class="ec_btn ec_float_tool" title="Settings">
+                    <div class="ec_btn ec_float_tool" title="设置">
                         <i class="fa-solid fa-gear"></i>
                     </div>
                 </div>
@@ -1428,6 +1438,19 @@
 
     let isReplying = false;
 
+    function echoTokenLimit(value) {
+        const n = Number(value);
+        return Number.isFinite(n) && n >= 256 ? Math.min(32768, Math.floor(n)) : 2048;
+    }
+
+    function echoBatchLimit(value) {
+        const n = Number(value);
+        return n === 0 ? Infinity : (Number.isFinite(n) && n >= 1 ? Math.min(50, Math.floor(n)) : 3);
+    }
+
+    // Counts automatic refills only; explicit generation/new正文 starts a new session.
+    let continuousRefills = 0;
+
     async function generateSingleReply(replyText, targetUsername) {
         if (isReplying) return;
         isReplying = true;
@@ -1494,7 +1517,7 @@
         const atUsername = `@${chatUsername}`;
         const replyCount = Math.max(1, Math.min(12, settings.chatReplyCount || 3));
         const baseMaxTok = targetUsername ? 200 : Math.max(200, replyCount * 80);
-        const maxTok = settings.chatOverrideTokens ? (settings.chatMaxTokens || 3000) : baseMaxTok;
+        const maxTok = Math.min(echoTokenLimit(settings.requestMaxTokens), settings.chatOverrideTokens ? (settings.chatMaxTokens || 3000) : baseMaxTok);
 
         let additionalSystemContext = '';
         const systemContextParts = [];
@@ -1603,7 +1626,7 @@
         if (settings.livestream) {
             updateLiveIndicator('loading');
         } else {
-            setStatus(`<span><i class="fa-solid fa-circle-notch fa-spin"></i> ${typingName} is typing...</span>`);
+            setStatus(`<span><i class="fa-solid fa-circle-notch fa-spin"></i> ${typingName} 正在输入…</span>`);
         }
 
         const messagesPayload = [{ role: 'system', content: systemMessage }, ...chatHistoryMessages, { role: 'user', content: userPrompt }];
@@ -1626,7 +1649,7 @@
                     }),
                     signal: abortController.signal
                 });
-                if (!resp.ok) throw new Error(`Ollama error: ${resp.status}`);
+                if (!resp.ok) throw new Error(`Ollama 接口错误：${resp.status}`);
                 const data = await resp.json();
                 result = data.message?.content || data.response || '';
 
@@ -1647,7 +1670,7 @@
                     }),
                     signal: abortController.signal
                 });
-                if (!resp.ok) throw new Error(`OpenAI error: ${resp.status}`);
+                if (!resp.ok) throw new Error(`独立接口错误：${resp.status}`);
                 const data = await resp.json();
                 result = extractTextFromResponse(data);
 
@@ -1655,7 +1678,7 @@
                 const cm = context.extensionSettings?.connectionManager;
                 // settings.preset stores profile ID; fall back to name match for older saved settings
                 const profile = cm?.profiles?.find(p => p.id === settings.preset) || cm?.profiles?.find(p => p.name === settings.preset);
-                if (!profile || !context.ConnectionManagerRequestService) throw new Error('Profile not available');
+                if (!profile || !context.ConnectionManagerRequestService) throw new Error('所选弹幕连接配置不可用，请检查配置；不会退回正文接口。');
                 const resp = await context.ConnectionManagerRequestService.sendRequest(
                     profile.id,
                     messagesPayload,
@@ -1819,6 +1842,7 @@
     }
 
     async function generateDiscordChat(showOverlay = false) {
+        if (showOverlay) continuousRefills = 0;
         if (!settings.enabled) {
             if (discordBar) discordBar.hide();
             return;
@@ -1858,9 +1882,9 @@
             updateLiveIndicator('loading');
         } else {
             setStatus(`
-                <span><i class="fa-solid fa-circle-notch fa-spin"></i> Processing...</span>
-                <div class="ec_status_btn" id="ec_cancel_btn" title="Cancel Generation">
-                     <i class="fa-solid fa-ban"></i> Cancel
+                <span><i class="fa-solid fa-circle-notch fa-spin"></i> 正在生成…</span>
+                <div class="ec_status_btn" id="ec_cancel_btn" title="取消生成">
+                     <i class="fa-solid fa-ban"></i> 取消
                 </div>
             `);
         }
@@ -1877,13 +1901,13 @@
             if (abortController) {
                 log('Aborting generation...');
                 userCancelled = true;
-                jQuery('#ec_cancel_btn').html('<i class="fa-solid fa-hourglass"></i> Stopping...').css('pointer-events', 'none');
+                jQuery('#ec_cancel_btn').html('<i class="fa-solid fa-hourglass"></i> 正在停止…').css('pointer-events', 'none');
                 abortController.abort();
                 log('AbortController.abort() called, signal.aborted:', abortController.signal.aborted);
 
                 // Also trigger SillyTavern's built-in stop generation
                 const stopButton = jQuery('#mes_stop');
-                if (stopButton.length && !stopButton.is('.disabled')) {
+                if (settings.source === 'default' && stopButton.length && !stopButton.is('.disabled')) {
                     log('Triggering SillyTavern stop button');
                     stopButton.trigger('click');
                 }
@@ -1892,7 +1916,7 @@
                 // If abortController doesn't exist yet, just clear the status
                 userCancelled = true;
                 setStatus('');
-                setDiscordText(`<div class="discord_status ec_cancelled"><i class="fa-solid fa-hand"></i> Processing cancelled</div>`);
+                setDiscordText(`<div class="discord_status ec_cancelled"><i class="fa-solid fa-hand"></i> 已取消生成</div>`);
                 setTimeout(() => {
                     const cancelledMsg = jQuery('.ec_cancelled');
                     if (cancelledMsg.length) {
@@ -2170,21 +2194,21 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
 
         // Calculate appropriate max_tokens based on message count
         // Each message typically needs 50-100 tokens, so we allocate ~200 per message with a minimum of 2048 for safety
-        const calculatedMaxTokens = Math.max(2048, userCount * 200 + 1024);
+        const calculatedMaxTokens = Math.min(echoTokenLimit(settings.requestMaxTokens), Math.max(2048, userCount * 200 + 1024));
         log('Calculated max_tokens:', calculatedMaxTokens, 'for', userCount, 'messages');
 
         try {
             let result = '';
 
-            if (settings.source === 'profile' && settings.preset) {
+            if (settings.source === 'profile') {
                 // PROFILE GENERATION - Build proper message array with chat history
                 const cm = context.extensionSettings?.connectionManager;
                 // settings.preset stores profile ID; fall back to name match for older saved settings
                 const profile = cm?.profiles?.find(p => p.id === settings.preset) || cm?.profiles?.find(p => p.name === settings.preset);
-                if (!profile) throw new Error(`Profile '${settings.preset}' not found`);
+                if (!profile) throw new Error('请先选择有效的弹幕连接配置；不会退回正文接口。');
 
                 // Use ConnectionManagerRequestService
-                if (!context.ConnectionManagerRequestService) throw new Error('ConnectionManagerRequestService not available');
+                if (!context.ConnectionManagerRequestService) throw new Error('酒馆连接管理服务不可用，请更新酒馆或选择独立接口');
 
                 // Build message array: system, chat history, then instructions
                 const messages = [
@@ -2251,7 +2275,7 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
                     }),
                     signal: abortController.signal
                 });
-                if (!response.ok) throw new Error(`Ollama API Error(${response.status})`);
+                if (!response.ok) throw new Error(`Ollama 接口错误（${response.status}）`);
                 const data = await response.json();
                 result = data.message?.content || data.response || '';
             } else if (settings.source === 'openai') {
@@ -2289,7 +2313,7 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
                     body: JSON.stringify(payload),
                     signal: abortController.signal
                 });
-                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                if (!response.ok) throw new Error(`接口错误：${response.status}`);
                 const data = await response.json();
                 result = extractTextFromResponse(data);
             } else {
@@ -2447,7 +2471,7 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
             setStatus('');
 
             if (messageCount === 0) {
-                setDiscordText('<div class=\"discord_status\">No valid chat lines generated.</div>');
+                setDiscordText('<div class=\"discord_status\">未生成有效弹幕，请检查模型输出或适当提高 Token 上限。</div>');
             } else {
                 // Use livestream queue only for background auto-generation (not explicit regen)
                 if (settings.livestream && !showOverlay) {
@@ -2506,7 +2530,7 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
                 // Actual error occurred - show error toast, keep previous content
                 error('Generation failed:', err);
                 if (typeof toastr !== 'undefined') {
-                    toastr.error(err.message || '未知错误', 'EchoChamber Generation Error');
+                    toastr.error(err.message || '未知错误', '弹幕生成失败');
                 }
             }
         }
@@ -2697,6 +2721,11 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
         delete savedSettings.chatMetadata;
 
         settings = Object.assign({}, defaultSettings, savedSettings);
+        if (!settings.costControlsVersion) {
+            if (settings.source === 'default') { settings.source = 'profile'; settings.preset = ''; }
+            settings.costControlsVersion = 1;
+            saveSettings();
+        }
         settings.userCount = parseInt(settings.userCount) || 5;
         settings.opacity = parseInt(settings.opacity) || 85;
 
@@ -2805,7 +2834,7 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
         if (!select.length) return;
 
         select.empty();
-        select.append('<option value="">-- Select Profile --</option>');
+        select.append('<option value="">—— 请选择连接配置 ——</option>');
 
         try {
             const context = SillyTavern.getContext();
@@ -2819,12 +2848,12 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
                 });
                 log(`Loaded ${connectionManager.profiles.length} connection profiles`);
             } else {
-                select.append('<option value="" disabled>No profiles found</option>');
+                select.append('<option value="" disabled>没有连接配置，请先在酒馆保存配置</option>');
                 log('No connection profiles available');
             }
         } catch (err) {
             warn('Error loading connection profiles:', err);
-            select.append('<option value="" disabled>Error loading profiles</option>');
+            select.append('<option value="" disabled>加载连接配置失败</option>');
         }
     }
 
@@ -2842,41 +2871,41 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
         <div id="ec_style_editor_modal" class="ec_modal_overlay">
             <div class="ec_modal_content">
                 <div class="ec_modal_header">
-                    <h3><i class="fa-solid fa-palette"></i> Style Editor</h3>
+                    <h3><i class="fa-solid fa-palette"></i> 风格编辑器</h3>
                     <button class="ec_modal_close" id="ec_style_editor_close">&times;</button>
                 </div>
                 <div class="ec_modal_body">
                     <div class="ec_style_sidebar">
                         <div class="ec_style_sidebar_header">
-                            <button class="menu_button ec_btn_new_style" id="ec_style_new" title="Create New Style">
-                                <i class="fa-solid fa-plus"></i> <span>New</span>
+                            <button class="menu_button ec_btn_new_style" id="ec_style_new" title="创建新风格">
+                                <i class="fa-solid fa-plus"></i> <span>新建</span>
                             </button>
                         </div>
                         <div class="ec_style_list" id="ec_style_list"></div>
-                        <div class="ec_style_order_hint"><i class="fa-solid fa-grip-vertical"></i> Drag to reorder</div>
+                        <div class="ec_style_order_hint"><i class="fa-solid fa-grip-vertical"></i> 拖动调整顺序</div>
                     </div>
                     <div class="ec_style_main" id="ec_style_main">
                         <div class="ec_empty_state">
                             <i class="fa-solid fa-palette"></i>
-                            <div>Select a style to edit or create a new one</div>
+                            <div>选择一个风格编辑，或创建新风格</div>
                         </div>
                     </div>
                 </div>
                 <div class="ec_modal_footer">
                     <div class="ec_modal_footer_left">
                         <button class="menu_button ec_btn_danger" id="ec_style_delete" style="display:none;">
-                            <i class="fa-solid fa-trash"></i> Delete
+                            <i class="fa-solid fa-trash"></i> 删除
                         </button>
                         <button class="menu_button ec_btn_export" id="ec_style_export" style="display:none;">
-                            <i class="fa-solid fa-download"></i> Export
+                            <i class="fa-solid fa-download"></i> 导出
                         </button>
                     </div>
                     <div class="ec_modal_footer_right">
                         <button class="menu_button ec_btn_cancel" id="ec_style_cancel">
-                            <i class="fa-solid fa-xmark"></i> Cancel
+                            <i class="fa-solid fa-xmark"></i> 取消
                         </button>
                         <button class="menu_button ec_btn_save" id="ec_style_save" style="display:none;">
-                            <i class="fa-solid fa-floppy-disk"></i> Save
+                            <i class="fa-solid fa-floppy-disk"></i> 保存
                         </button>
                     </div>
                 </div>
@@ -2933,7 +2962,7 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
 
             const item = jQuery(`
                 <div class="ec_style_item ${typeClass}" data-id="${safeVal}" draggable="true">
-                    <span class="ec_drag_handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+                    <span class="ec_drag_handle" title="拖动调整顺序"><i class="fa-solid fa-grip-vertical"></i></span>
                     <i class="fa-solid ${icon} ec_style_type_icon"></i>
                     <span class="ec_style_label">${safeLabel}</span>
                 </div>
@@ -3010,7 +3039,7 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
         jQuery('#ec_style_main').html(`
             <div class="ec_empty_state">
                 <i class="fa-solid fa-palette"></i>
-                <div>Select a style to edit or create a new one</div>
+                <div>选择一个风格编辑，或创建新风格</div>
             </div>
         `);
         jQuery('#ec_style_save, #ec_style_delete, #ec_style_export').hide();
@@ -3059,16 +3088,16 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
         jQuery('#ec_style_main').html(`
             <div class="ec_style_name_row">
                 <input type="text" class="ec_style_name_input" id="ec_style_name"
-                       value="${safeStyleName}" placeholder="Style Name" ${!isCustom ? 'readonly' : ''}>
-                ${!isCustom ? '<small style="opacity:0.6;">(Built-in styles cannot be renamed)</small>' : ''}
+                       value="${safeStyleName}" placeholder="风格名称" ${!isCustom ? 'readonly' : ''}>
+                ${!isCustom ? '<small style="opacity:0.6;">（内置风格不能重命名）</small>' : ''}
             </div>
             <textarea class="ec_style_textarea" id="ec_style_content"
-                      placeholder="Enter the prompt/instructions for this style..."></textarea>
+                      placeholder="填写这个风格的提示词或说明…"></textarea>
             <div style="font-size:0.75em; opacity:0.65; margin-top:6px; padding:6px 8px; background:rgba(0,0,0,0.15); border-radius:4px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <span><i class="fa-solid fa-code" style="margin-right:4px;"></i><b>Macros:</b></span>
+                <span><i class="fa-solid fa-code" style="margin-right:4px;"></i><b>可用宏：</b></span>
                 <span><code style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:3px;">{{user}}</code> → <em>${previewUser}</em></span>
                 <span><code style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:3px;">{{char}}</code> → <em>${previewChar}</em></span>
-                <span><code style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:3px;">{{characters}}</code> → <em>all active character names</em></span>
+                <span><code style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:3px;">{{characters}}</code> → <em>当前所有角色的名字</em></span>
             </div>
         `);
 
@@ -3114,7 +3143,7 @@ STRICTLY follow the format defined in the instruction. ${isNarratorStyle && sett
 
 You must format your responses using the following format:
 <format>
-username: message
+用户名: 消息
 </format>
 `;
 
@@ -3125,106 +3154,106 @@ username: message
         <div id="ec_template_creator_modal" class="ec_modal_overlay">
             <div class="ec_modal_content ec_template_creator">
                 <div class="ec_modal_header">
-                    <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Create New Style</h3>
+                    <h3><i class="fa-solid fa-wand-magic-sparkles"></i> 创建新风格</h3>
                     <button class="ec_modal_close" id="ec_template_close">&times;</button>
                 </div>
                 <div class="ec_template_tabs">
-                    <button class="ec_tab_btn active" data-tab="easy"><i class="fa-solid fa-magic"></i> Easy Mode</button>
-                    <button class="ec_tab_btn" data-tab="advanced"><i class="fa-solid fa-code"></i> Advanced</button>
+                    <button class="ec_tab_btn active" data-tab="easy"><i class="fa-solid fa-magic"></i> 简易模式</button>
+                    <button class="ec_tab_btn" data-tab="advanced"><i class="fa-solid fa-code"></i> 高级模式</button>
                 </div>
                 <div class="ec_modal_body ec_template_body">
                     <!-- Easy Mode -->
                     <div class="ec_tab_content active" data-tab="easy">
                         <div class="ec_form_group">
-                            <label>Style Name</label>
-                            <input type="text" id="ec_tpl_name" placeholder="My Custom Chat" />
+                            <label>风格名称</label>
+                            <input type="text" id="ec_tpl_name" placeholder="我的自定义弹幕" />
                         </div>
                         <div class="ec_form_group">
-                            <label>Style Type</label>
+                            <label>风格类型</label>
                             <select id="ec_tpl_type">
-                                <option value="chat">Chat (Multiple Users)</option>
-                                <option value="narrator">Narrator (Single Voice)</option>
+                                <option value="chat">多人聊天</option>
+                                <option value="narrator">单人旁白</option>
                             </select>
                         </div>
                         <div class="ec_form_group">
-                            <label>Output Format</label>
-                            <input type="text" id="ec_tpl_format" placeholder="username: message" value="username: message" />
-                            <small>How each message should be formatted</small>
+                            <label>输出形式</label>
+                            <input type="text" id="ec_tpl_format" placeholder="用户名: 消息" value="username: message" />
+                            <small>每条消息应采用什么格式</small>
                         </div>
                         <div class="ec_form_group">
-                            <label>Identity / Setting</label>
-                            <textarea id="ec_tpl_identity" rows="2" placeholder="Who are the participants? What's the context?"></textarea>
-                            <small>e.g., "Discord users reacting live to events" or "A sarcastic AI commentator"</small>
+                            <label>身份与场景</label>
+                            <textarea id="ec_tpl_identity" rows="2" placeholder="参与者是谁？当前是什么场景？"></textarea>
+                            <small>例如：实时讨论剧情的群友，或爱吐槽的评论员</small>
                         </div>
                         <div class="ec_form_group">
-                            <label>Personality Guidelines</label>
-                            <textarea id="ec_tpl_personality" rows="3" placeholder="Describe the tone, vocabulary, and behavior"></textarea>
-                            <small>e.g., "Chaotic, uses emojis, internet slang, varying excitement levels"</small>
+                            <label>性格说明</label>
+                            <textarea id="ec_tpl_personality" rows="3" placeholder="描述语气、措辞与行为"></textarea>
+                            <small>例如：活泼混乱，使用表情与网络用语，情绪有起伏</small>
                         </div>
                         <div class="ec_form_group">
-                            <label>Tone</label>
+                            <label>语气</label>
                             <select id="ec_tpl_tone">
-                                <option value="custom">Custom (enter below)</option>
-                                <option value="chaotic">Chaotic / Energetic</option>
-                                <option value="calm">Calm / Thoughtful</option>
-                                <option value="sarcastic">Sarcastic / Witty</option>
-                                <option value="wholesome">Wholesome / Supportive</option>
-                                <option value="cynical">Cynical / Tired</option>
-                                <option value="explicit">Explicit / NSFW</option>
+                                <option value="custom">自定义（在下方填写）</option>
+                                <option value="chaotic">混乱／活力</option>
+                                <option value="calm">平静／深思</option>
+                                <option value="sarcastic">讽刺／机智</option>
+                                <option value="wholesome">温暖／支持</option>
+                                <option value="cynical">冷嘲／疲惫</option>
+                                <option value="explicit">成人向</option>
                             </select>
-                            <input type="text" id="ec_tpl_custom_tone" placeholder="Enter your custom tone description..." style="margin-top: 8px;" />
+                            <input type="text" id="ec_tpl_custom_tone" placeholder="填写自定义语气描述…" style="margin-top: 8px;" />
                         </div>
                         <div class="ec_form_row">
                             <div class="ec_form_group">
-                                <label>Message Length</label>
+                                <label>单条长度</label>
                                 <select id="ec_tpl_length">
-                                    <option value="short">Short (1-2 sentences)</option>
-                                    <option value="medium">Medium (2-3 sentences)</option>
-                                    <option value="long">Long (paragraphs)</option>
+                                    <option value="short">简短（1～2 句）</option>
+                                    <option value="medium">适中（2～3 句）</option>
+                                    <option value="long">较长（段落）</option>
                                 </select>
                             </div>
                             <div class="ec_form_group">
-                                <label>User Interactions</label>
+                                <label>用户互动</label>
                                 <select id="ec_tpl_interact">
-                                    <option value="yes">Users respond to each other</option>
-                                    <option value="no">Independent messages</option>
+                                    <option value="yes">用户相互回复</option>
+                                    <option value="no">各条弹幕独立</option>
                                 </select>
                             </div>
                         </div>
                         <div class="ec_form_group">
-                            <label>Style Elements (select all that apply)</label>
+                            <label>风格元素（可多选）</label>
                             <div class="ec_checkbox_row">
-                                <label><input type="checkbox" id="ec_tpl_emoji" checked /> Emojis</label>
-                                <label><input type="checkbox" id="ec_tpl_slang" checked /> Internet Slang</label>
-                                <label><input type="checkbox" id="ec_tpl_lowercase" /> Lowercase preferred</label>
-                                <label><input type="checkbox" id="ec_tpl_typos" /> Occasional typos</label>
+                                <label><input type="checkbox" id="ec_tpl_emoji" checked /> 表情符号</label>
+                                <label><input type="checkbox" id="ec_tpl_slang" checked /> 网络用语</label>
+                                <label><input type="checkbox" id="ec_tpl_lowercase" /> 偏好小写</label>
+                                <label><input type="checkbox" id="ec_tpl_typos" /> 偶尔打错字</label>
                             </div>
                             <div class="ec_checkbox_row" style="margin-top: 8px;">
-                                <label><input type="checkbox" id="ec_tpl_allcaps" /> ALL CAPS moments</label>
-                                <label><input type="checkbox" id="ec_tpl_hashtags" /> Hashtags</label>
-                                <label><input type="checkbox" id="ec_tpl_mentions" /> @mentions</label>
-                                <label><input type="checkbox" id="ec_tpl_formal" /> Formal grammar</label>
+                                <label><input type="checkbox" id="ec_tpl_allcaps" /> 偶尔全大写</label>
+                                <label><input type="checkbox" id="ec_tpl_hashtags" /> 话题标签</label>
+                                <label><input type="checkbox" id="ec_tpl_mentions" /> @提及</label>
+                                <label><input type="checkbox" id="ec_tpl_formal" /> 正式语法</label>
                             </div>
                         </div>
                     </div>
                     <!-- Advanced Mode -->
                     <div class="ec_tab_content" data-tab="advanced">
                         <div class="ec_form_group">
-                            <label>Style Name</label>
-                            <input type="text" id="ec_tpl_adv_name" placeholder="My Custom Chat" />
+                            <label>风格名称</label>
+                            <input type="text" id="ec_tpl_adv_name" placeholder="我的自定义弹幕" />
                         </div>
                         <div class="ec_form_group ec_full_height">
-                            <label>System Prompt</label>
+                            <label>系统提示词</label>
                             <div class="ec_prompt_actions">
-                                <button class="menu_button ec_small_btn" id="ec_tpl_copy"><i class="fa-solid fa-copy"></i> Copy</button>
-                                <button class="menu_button ec_small_btn" id="ec_tpl_paste"><i class="fa-solid fa-paste"></i> Paste</button>
-                                <button class="menu_button ec_small_btn" id="ec_tpl_clear"><i class="fa-solid fa-eraser"></i> Clear</button>
-                                <button class="menu_button ec_small_btn" id="ec_tpl_reset"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+                                <button class="menu_button ec_small_btn" id="ec_tpl_copy"><i class="fa-solid fa-copy"></i> 复制</button>
+                                <button class="menu_button ec_small_btn" id="ec_tpl_paste"><i class="fa-solid fa-paste"></i> 粘贴</button>
+                                <button class="menu_button ec_small_btn" id="ec_tpl_clear"><i class="fa-solid fa-eraser"></i> 清空</button>
+                                <button class="menu_button ec_small_btn" id="ec_tpl_reset"><i class="fa-solid fa-rotate-left"></i> 重置</button>
                             </div>
-                            <textarea id="ec_tpl_adv_prompt" placeholder="Write your complete system prompt here..."></textarea>
-                            <small>The extension will prepend "Generate X messages" based on user count setting.</small>
+                            <textarea id="ec_tpl_adv_prompt" placeholder="填写完整系统提示词…"></textarea>
+                            <small>扩展会根据弹幕条数设置，在提示词前添加“生成 X 条消息”。</small>
                             <div style="font-size:0.75em; opacity:0.65; margin-top:6px; padding:6px 8px; background:rgba(0,0,0,0.15); border-radius:4px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                                <span><i class="fa-solid fa-code" style="margin-right:4px;"></i><b>Macros:</b></span>
+                                <span><i class="fa-solid fa-code" style="margin-right:4px;"></i><b>可用宏：</b></span>
                                 <span><code style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:3px;">{{user}}</code> &rarr; <em id="ec_tpl_adv_user_preview">?</em></span>
                                 <span><code style="background:rgba(255,255,255,0.08); padding:1px 5px; border-radius:3px;">{{char}}</code> &rarr; <em id="ec_tpl_adv_char_preview">?</em></span>
                             </div>
@@ -3235,10 +3264,10 @@ username: message
                     <div class="ec_modal_footer_left"></div>
                     <div class="ec_modal_footer_right">
                         <button class="menu_button ec_btn_cancel" id="ec_template_cancel">
-                            <i class="fa-solid fa-xmark"></i> Cancel
+                            <i class="fa-solid fa-xmark"></i> 取消
                         </button>
                         <button class="menu_button ec_btn_create" id="ec_template_create">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> Create
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> 创建
                         </button>
                     </div>
                 </div>
@@ -3273,9 +3302,9 @@ username: message
             try {
                 const text = jQuery('#ec_tpl_adv_prompt').val();
                 await navigator.clipboard.writeText(text);
-                if (typeof toastr !== 'undefined') toastr.success('Prompt copied to clipboard');
+                if (typeof toastr !== 'undefined') toastr.success('提示词已复制');
             } catch (err) {
-                if (typeof toastr !== 'undefined') toastr.error('Could not copy to clipboard');
+                if (typeof toastr !== 'undefined') toastr.error('复制失败');
             }
         });
 
@@ -3284,7 +3313,7 @@ username: message
                 const text = await navigator.clipboard.readText();
                 jQuery('#ec_tpl_adv_prompt').val(text);
             } catch (err) {
-                if (typeof toastr !== 'undefined') toastr.error('Could not access clipboard');
+                if (typeof toastr !== 'undefined') toastr.error('无法访问剪贴板');
             }
         });
 
@@ -3346,7 +3375,7 @@ username: message
             styleName = jQuery('#ec_tpl_adv_name').val().trim() || 'Custom Style';
             stylePrompt = jQuery('#ec_tpl_adv_prompt').val().trim();
             if (!stylePrompt) {
-                if (typeof toastr !== 'undefined') toastr.warning('Please enter a system prompt.');
+                if (typeof toastr !== 'undefined') toastr.warning('请填写系统提示词');
                 return;
             }
         } else {
@@ -3464,7 +3493,7 @@ username: message
 
         // Validate input types
         if (typeof styleName !== 'string' || typeof stylePrompt !== 'string') {
-            if (typeof toastr !== 'undefined') toastr.error('Invalid input type');
+            if (typeof toastr !== 'undefined') toastr.error('输入格式不正确');
             return;
         }
 
@@ -3486,7 +3515,7 @@ username: message
         // Sanitize style name for display
         const { DOMPurify } = SillyTavern.libs;
         const safeStyleName = DOMPurify.sanitize(styleName, { ALLOWED_TAGS: [] });
-        if (typeof toastr !== 'undefined') toastr.success(`Style "${safeStyleName}" created!`);
+        if (typeof toastr !== 'undefined') toastr.success(`已创建风格“${safeStyleName}”`);
     }
 
     function createNewStyle() {
@@ -3501,12 +3530,12 @@ username: message
 
         // Validate input types
         if (typeof name !== 'string' || typeof content !== 'string') {
-            if (typeof toastr !== 'undefined') toastr.error('Invalid input type');
+            if (typeof toastr !== 'undefined') toastr.error('输入格式不正确');
             return;
         }
 
         if (!name) {
-            if (typeof toastr !== 'undefined') toastr.error('Style name cannot be empty');
+            if (typeof toastr !== 'undefined') toastr.error('风格名称不能为空');
             return;
         }
 
@@ -3537,7 +3566,7 @@ username: message
         jQuery(`.ec_style_item[data-id="${safeId}"]`).addClass('active');
 
         const safeName = DOMPurify.sanitize(name, { ALLOWED_TAGS: [] });
-        if (typeof toastr !== 'undefined') toastr.success(`Style "${safeName}" saved!`);
+        if (typeof toastr !== 'undefined') toastr.success(`已保存风格“${safeName}”`);
         log('Style saved:', currentEditingStyle);
     }
 
@@ -3560,7 +3589,7 @@ username: message
         populateStyleList();
         showEmptyState();
 
-        if (typeof toastr !== 'undefined') toastr.info('Style removed');
+        if (typeof toastr !== 'undefined') toastr.info('风格已移除');
     }
 
     function exportStyle(styleId) {
@@ -3579,7 +3608,7 @@ username: message
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        if (typeof toastr !== 'undefined') toastr.success('Style exported!');
+        if (typeof toastr !== 'undefined') toastr.success('风格已导出');
     }
 
     // ============================================================
@@ -3613,37 +3642,37 @@ username: message
         const livestreamVisible = s.livestream ? '' : 'display:none;';
 
         const modal = jQuery(`
-<div id="ec_settings_modal" role="dialog" aria-modal="true" aria-label="EchoChamber Settings">
+<div id="ec_settings_modal" role="dialog" aria-modal="true" aria-label="弹幕设置">
   <div class="ecm_backdrop"></div>
   <div class="ecm_card">
 
     <div class="ecm_header">
-      <div class="ecm_header_title"><i class="fa-solid fa-gear"></i> EchoChamber Settings</div>
-      <div class="ecm_close_btn" id="ecm_close" title="Close"><i class="fa-solid fa-xmark"></i></div>
+      <div class="ecm_header_title"><i class="fa-solid fa-gear"></i> 弹幕设置</div>
+      <div class="ecm_close_btn" id="ecm_close" title="关闭"><i class="fa-solid fa-xmark"></i></div>
     </div>
 
     <div class="ecm_layout">
 
       <!-- SIDEBAR (desktop only) -->
-      <nav class="ecm_sidebar" aria-label="Settings navigation">
+      <nav class="ecm_sidebar" aria-label="设置导航">
         <ul class="ecm_nav_list">
           <li><a class="ecm_nav_item" data-target="ecm-sect-general" role="button" tabindex="0">
-            <i class="fa-solid fa-power-off"></i><span>General</span>
+            <i class="fa-solid fa-power-off"></i><span>常规</span>
           </a></li>
           <li><a class="ecm_nav_item" data-target="ecm-sect-engine" role="button" tabindex="0">
-            <i class="fa-solid fa-microchip"></i><span>Generation Engine</span>
+            <i class="fa-solid fa-microchip"></i><span>弹幕接口与模型</span>
           </a></li>
           <li><a class="ecm_nav_item" data-target="ecm-sect-display" role="button" tabindex="0">
-            <i class="fa-solid fa-sliders"></i><span>Display</span>
+            <i class="fa-solid fa-sliders"></i><span>显示</span>
           </a></li>
           <li><a class="ecm_nav_item" data-target="ecm-sect-content" role="button" tabindex="0">
-            <i class="fa-solid fa-list-check"></i><span>Content Settings</span>
+            <i class="fa-solid fa-list-check"></i><span>上下文设置</span>
           </a></li>
           <li><a class="ecm_nav_item" data-target="ecm-sect-livestream" role="button" tabindex="0">
-            <i class="fa-solid fa-tower-broadcast"></i><span>Livestream</span>
+            <i class="fa-solid fa-tower-broadcast"></i><span>逐条播放与刷新</span>
           </a></li>
           <li><a class="ecm_nav_item" data-target="ecm-sect-chat" role="button" tabindex="0">
-            <i class="fa-solid fa-reply"></i><span>Chat Participation</span>
+            <i class="fa-solid fa-reply"></i><span>参与弹幕</span>
           </a></li>
         </ul>
       </nav>
@@ -3654,12 +3683,12 @@ username: message
         <!-- GENERAL -->
          <section class="ecm_section ecm_acc" data-acc-open id="ecm-sect-general">
           <button class="ecm_acc_header" aria-expanded="false" type="button">
-            <span class="ecm_acc_title"><i class="fa-solid fa-power-off"></i> General</span>
+            <span class="ecm_acc_title"><i class="fa-solid fa-power-off"></i> 常规</span>
             <i class="ecm_acc_chevron fa-solid fa-chevron-down"></i>
           </button>
           <div class="ecm_acc_body" hidden>
             <label class="ecm_row ecm_toggle_row" for="ecm_enabled">
-              <span class="ecm_label">Enable EchoChamber</span>
+              <span class="ecm_label">启用弹幕</span>
               <input id="ecm_enabled" type="checkbox" class="ecm_toggle"${s.enabled ? ' checked' : ''}>
             </label>
           </div>
@@ -3668,17 +3697,17 @@ username: message
         <!-- GENERATION ENGINE -->
         <section class="ecm_section ecm_acc" id="ecm-sect-engine">
           <button class="ecm_acc_header" aria-expanded="false" type="button">
-            <span class="ecm_acc_title"><i class="fa-solid fa-microchip"></i> Generation Engine</span>
+            <span class="ecm_acc_title"><i class="fa-solid fa-microchip"></i> 弹幕接口与模型</span>
             <i class="ecm_acc_chevron fa-solid fa-chevron-down"></i>
           </button>
           <div class="ecm_acc_body" hidden>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_source">Source</label>
+              <label class="ecm_label" for="ecm_source">弹幕模型来源</label>
               <select id="ecm_source" class="ecm_select">
-                <option value="default"${s.source === 'default' ? ' selected' : ''}>Default (Main API)</option>
-                <option value="profile"${s.source === 'profile' ? ' selected' : ''}>Connection Profile</option>
-                <option value="ollama"${s.source === 'ollama' ? ' selected' : ''}>Ollama (Local)</option>
-                <option value="openai"${s.source === 'openai' ? ' selected' : ''}>OpenAI Compatible</option>
+                <option value="default"${s.source === 'default' ? ' selected' : ''}>跟随正文接口（可能费用较高）</option>
+                <option value="profile"${s.source === 'profile' ? ' selected' : ''}>选择酒馆连接配置（独立模型）</option>
+                <option value="ollama"${s.source === 'ollama' ? ' selected' : ''}>Ollama（本地模型）</option>
+                <option value="openai"${s.source === 'openai' ? ' selected' : ''}>独立接口（兼容 OpenAI）</option>
               </select>
             </div>
             <div id="ecm_ollama_settings" class="ecm_subpanel ecm_subpanel_green" style="${ollamaVisible}">
@@ -3688,22 +3717,22 @@ username: message
               <div id="ecm_ollama_status" class="ecm_hint"></div>
             </div>
             <div id="ecm_openai_settings" class="ecm_subpanel ecm_subpanel_blue" style="${openaiVisible}">
-              <div class="ecm_subpanel_title"><i class="fa-solid fa-cloud"></i> OpenAI Compatible</div>
+              <div class="ecm_subpanel_title"><i class="fa-solid fa-cloud"></i> 独立接口（兼容 OpenAI）</div>
               <select id="ecm_openai_preset" class="ecm_select ecm_input_gap">
-                <option value="custom"${s.openai_preset === 'custom' ? ' selected' : ''}>Custom</option>
+                <option value="custom"${s.openai_preset === 'custom' ? ' selected' : ''}>自定义</option>
                 <option value="lmstudio"${s.openai_preset === 'lmstudio' ? ' selected' : ''}>LM Studio (:1234)</option>
                 <option value="kobold"${s.openai_preset === 'kobold' ? ' selected' : ''}>KoboldCPP (:5001)</option>
                 <option value="textgen"${s.openai_preset === 'textgen' ? ' selected' : ''}>TextGenWebUI (:5000)</option>
                 <option value="vllm"${s.openai_preset === 'vllm' ? ' selected' : ''}>vLLM (:8000)</option>
               </select>
               <input id="ecm_openai_url" type="text" class="ecm_input ecm_input_gap" placeholder="http://localhost:1234/v1" value="${s.openai_url || ''}">
-              <input id="ecm_openai_key" type="password" class="ecm_input ecm_input_gap" placeholder="API Key (Optional)" value="${s.openai_key || ''}">
-              <input id="ecm_openai_model" type="text" class="ecm_input" placeholder="Model name" value="${s.openai_model || ''}">
+              <input id="ecm_openai_key" type="password" class="ecm_input ecm_input_gap" placeholder="API 密钥（按服务商要求填写）" value="${s.openai_key || ''}">
+              <input id="ecm_openai_model" type="text" class="ecm_input" placeholder="模型 ID" value="${s.openai_model || ''}">
             </div>
             <div id="ecm_profile_settings" class="ecm_subpanel ecm_subpanel_purple" style="${profileVisible}">
-              <div class="ecm_subpanel_title"><i class="fa-solid fa-link"></i> Connection Profile</div>
+              <div class="ecm_subpanel_title"><i class="fa-solid fa-link"></i> 选择酒馆连接配置（独立模型）</div>
               <select id="ecm_preset_select" class="ecm_select"></select>
-              <div class="ecm_hint"><i class="fa-solid fa-shield-halved"></i> Uses your existing ST credentials securely.</div>
+              <div class="ecm_hint"><i class="fa-solid fa-shield-halved"></i> 使用所选连接配置保存的接口与模型，不切换正文模型；请先在酒馆保存一份便宜模型的连接配置。</div>
             </div>
           </div>
         </section>
@@ -3711,46 +3740,46 @@ username: message
         <!-- DISPLAY -->
          <section class="ecm_section ecm_acc" id="ecm-sect-display">
           <button class="ecm_acc_header" aria-expanded="false" type="button">
-            <span class="ecm_acc_title"><i class="fa-solid fa-sliders"></i> Display</span>
+            <span class="ecm_acc_title"><i class="fa-solid fa-sliders"></i> 显示</span>
             <i class="ecm_acc_chevron fa-solid fa-chevron-down"></i>
           </button>
           <div class="ecm_acc_body" hidden>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_style">Style</label>
+              <label class="ecm_label" for="ecm_style">弹幕风格</label>
               <select id="ecm_style" class="ecm_select">${styleOptions}</select>
             </div>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_position">Position</label>
+              <label class="ecm_label" for="ecm_position">停靠位置</label>
               <select id="ecm_position" class="ecm_select">
-                <option value="bottom"${s.position === 'bottom' ? ' selected' : ''}>Bottom</option>
-                <option value="top"${s.position === 'top' ? ' selected' : ''}>Top</option>
-                <option value="left"${s.position === 'left' ? ' selected' : ''}>Left</option>
-                <option value="right"${s.position === 'right' ? ' selected' : ''}>Right</option>
+                <option value="bottom"${s.position === 'bottom' ? ' selected' : ''}>底部</option>
+                <option value="top"${s.position === 'top' ? ' selected' : ''}>顶部</option>
+                <option value="left"${s.position === 'left' ? ' selected' : ''}>左侧</option>
+                <option value="right"${s.position === 'right' ? ' selected' : ''}>右侧</option>
               </select>
             </div>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_user_count">Users</label>
+              <label class="ecm_label" for="ecm_user_count">弹幕条数</label>
               <select id="ecm_user_count" class="ecm_select">
                 <!-- Generating options 1-20 inline -->
                 ${Array.from({ length: 20 }, (_, i) => i + 1).map(n => `<option value="${n}"${(s.userCount || 5) == n ? ' selected' : ''}>${n}</option>`).join('')}
               </select>
             </div>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_font_size">Font Size (px)</label>
+              <label class="ecm_label" for="ecm_font_size">字号（像素）</label>
               <select id="ecm_font_size" class="ecm_select">
                 <!-- Generating options 8-24 inline -->
                 ${Array.from({ length: 17 }, (_, i) => i + 8).map(n => `<option value="${n}"${(s.fontSize || 15) == n ? ' selected' : ''}>${n}</option>`).join('')}
               </select>
             </div>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_opacity">Opacity <span id="ecm_opacity_val">${s.opacity || 85}%</span></label>
+              <label class="ecm_label" for="ecm_opacity">不透明度 <span id="ecm_opacity_val">${s.opacity || 85}%</span></label>
               <input id="ecm_opacity" type="range" class="ecm_slider" min="10" max="100" step="5" value="${s.opacity || 85}">
             </div>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_message_order"><i class="fa-solid fa-arrow-down-up-across-line ecm_icon"></i> Message Order</label>
+              <label class="ecm_label" for="ecm_message_order"><i class="fa-solid fa-arrow-down-up-across-line ecm_icon"></i> 消息顺序</label>
               <select id="ecm_message_order" class="ecm_select">
-                <option value="oldest-first"${(s.messageOrder || 'oldest-first') === 'oldest-first' ? ' selected' : ''}>Oldest at top, newest at bottom</option>
-                <option value="newest-first"${s.messageOrder === 'newest-first' ? ' selected' : ''}>Newest at top, oldest at bottom</option>
+                <option value="oldest-first"${(s.messageOrder || 'oldest-first') === 'oldest-first' ? ' selected' : ''}>旧消息在上，新消息在下</option>
+                <option value="newest-first"${s.messageOrder === 'newest-first' ? ' selected' : ''}>新消息在上，旧消息在下</option>
               </select>
             </div>
           </div>
@@ -3759,50 +3788,50 @@ username: message
         <!-- CONTENT SETTINGS -->
          <section class="ecm_section ecm_acc" id="ecm-sect-content">
           <button class="ecm_acc_header" aria-expanded="false" type="button">
-            <span class="ecm_acc_title"><i class="fa-solid fa-list-check"></i> Content Settings</span>
+            <span class="ecm_acc_title"><i class="fa-solid fa-list-check"></i> 上下文设置</span>
             <i class="ecm_acc_chevron fa-solid fa-chevron-down"></i>
           </button>
           <div class="ecm_acc_body" hidden>
             <label class="ecm_row ecm_toggle_row" for="ecm_auto_update">
-              <span class="ecm_label"><i class="fa-solid fa-sync ecm_icon"></i> Auto-update On Messages</span>
+              <span class="ecm_label"><i class="fa-solid fa-sync ecm_icon"></i> 正文回复后自动生成一批</span>
               <input id="ecm_auto_update" type="checkbox" class="ecm_toggle"${s.autoUpdateOnMessages !== false ? ' checked' : ''}>
             </label>
             <label class="ecm_row ecm_toggle_row" for="ecm_include_user">
-              <span class="ecm_label"><i class="fa-solid fa-comments ecm_icon"></i> Include Chat History</span>
+              <span class="ecm_label"><i class="fa-solid fa-comments ecm_icon"></i> 包含聊天历史</span>
               <input id="ecm_include_user" type="checkbox" class="ecm_toggle"${s.includeUserInput ? ' checked' : ''}>
             </label>
             <div id="ecm_context_depth_container" class="ecm_subrow" style="${contextDepthVisible}">
-              <label class="ecm_label" for="ecm_context_depth">Context Depth</label>
+              <label class="ecm_label" for="ecm_context_depth">读取最近消息数</label>
               <input id="ecm_context_depth" type="number" class="ecm_input ecm_input_sm" min="2" max="20" value="${s.contextDepth || 4}">
             </div>
             <label class="ecm_row ecm_toggle_row" for="ecm_include_past_echo">
-              <span class="ecm_label"><i class="fa-solid fa-layer-group ecm_icon"></i> Include Past EchoChambers</span>
+              <span class="ecm_label"><i class="fa-solid fa-layer-group ecm_icon"></i> 包含过去的弹幕（增加输入消耗）</span>
               <input id="ecm_include_past_echo" type="checkbox" class="ecm_toggle"${s.includePastEchoChambers ? ' checked' : ''}>
             </label>
             <div class="ecm_subpanel_plain">
-              <div class="ecm_subpanel_title"><i class="fa-solid fa-file-lines"></i> Include in Context</div>
+              <div class="ecm_subpanel_title"><i class="fa-solid fa-file-lines"></i> 附加到弹幕上下文</div>
               <label class="ecm_row ecm_toggle_row" for="ecm_include_persona">
-                <span class="ecm_label"><i class="fa-solid fa-face-smile ecm_icon"></i> Persona</span>
+                <span class="ecm_label"><i class="fa-solid fa-face-smile ecm_icon"></i> 用户设定</span>
                 <input id="ecm_include_persona" type="checkbox" class="ecm_toggle"${s.includePersona ? ' checked' : ''}>
               </label>
               <label class="ecm_row ecm_toggle_row" for="ecm_include_authors_note">
-                <span class="ecm_label"><i class="fa-solid fa-pen-nib ecm_icon"></i> Author's Note</span>
+                <span class="ecm_label"><i class="fa-solid fa-pen-nib ecm_icon"></i> 作者注释</span>
                 <input id="ecm_include_authors_note" type="checkbox" class="ecm_toggle"${s.includeAuthorsNote ? ' checked' : ''}>
               </label>
               <label class="ecm_row ecm_toggle_row" for="ecm_include_character_description">
-                <span class="ecm_label"><i class="fa-solid fa-address-card ecm_icon"></i> Character Description(s)</span>
+                <span class="ecm_label"><i class="fa-solid fa-address-card ecm_icon"></i> 角色描述</span>
                 <input id="ecm_include_character_description" type="checkbox" class="ecm_toggle"${s.includeCharacterDescription ? ' checked' : ''}>
               </label>
               <label class="ecm_row ecm_toggle_row" for="ecm_include_summary">
-                <span class="ecm_label"><i class="fa-solid fa-scroll ecm_icon"></i> Summary (from Summarize ext.)</span>
+                <span class="ecm_label"><i class="fa-solid fa-scroll ecm_icon"></i> 聊天摘要（摘要扩展）</span>
                 <input id="ecm_include_summary" type="checkbox" class="ecm_toggle"${s.includeSummary ? ' checked' : ''}>
               </label>
               <label class="ecm_row ecm_toggle_row" for="ecm_include_world_info">
-                <span class="ecm_label"><i class="fa-solid fa-globe ecm_icon"></i> World Info / Lorebook</span>
+                <span class="ecm_label"><i class="fa-solid fa-globe ecm_icon"></i> 世界书</span>
                 <input id="ecm_include_world_info" type="checkbox" class="ecm_toggle"${s.includeWorldInfo ? ' checked' : ''}>
               </label>
               <div id="ecm_wi_budget_container" class="ecm_subrow" style="${wibudgetVisible}">
-                <label class="ecm_label" for="ecm_wi_budget"><i class="fa-solid fa-coins ecm_icon"></i> WI Token Budget</label>
+                <label class="ecm_label" for="ecm_wi_budget"><i class="fa-solid fa-coins ecm_icon"></i> 世界书 Token 预算</label>
                 <input id="ecm_wi_budget" type="number" class="ecm_input ecm_input_sm" min="0" max="200000" step="1000" value="${s.wiBudget || 0}">
               </div>
             </div>
@@ -3812,41 +3841,41 @@ username: message
         <!-- LIVESTREAM -->
         <section class="ecm_section ecm_acc" id="ecm-sect-livestream">
           <button class="ecm_acc_header" aria-expanded="false" type="button">
-            <span class="ecm_acc_title"><i class="fa-solid fa-tower-broadcast"></i> Livestream</span>
+            <span class="ecm_acc_title"><i class="fa-solid fa-tower-broadcast"></i> 逐条播放与刷新</span>
             <i class="ecm_acc_chevron fa-solid fa-chevron-down"></i>
           </button>
           <div class="ecm_acc_body" hidden>
             <label class="ecm_row ecm_toggle_row" for="ecm_livestream">
-              <span class="ecm_label">Enable Livestream Mode</span>
+              <span class="ecm_label">启用弹幕逐条播放</span>
               <input id="ecm_livestream" type="checkbox" class="ecm_toggle"${s.livestream ? ' checked' : ''}>
             </label>
             <div id="ecm_livestream_settings" style="${livestreamVisible}">
               <label class="ecm_row ecm_toggle_row" for="ecm_livestream_auto_scroll">
-                <span class="ecm_label"><i class="fa-solid fa-angles-down ecm_icon"></i> Auto-scroll to Latest Message</span>
+                <span class="ecm_label"><i class="fa-solid fa-angles-down ecm_icon"></i> 自动滚动到最新弹幕</span>
                 <input id="ecm_livestream_auto_scroll" type="checkbox" class="ecm_toggle"${s.livestreamAutoScroll !== false ? ' checked' : ''}>
               </label>
               <div class="ecm_row">
-                <label class="ecm_label" for="ecm_livestream_batch_size"><i class="fa-solid fa-boxes-stacked ecm_icon"></i> Batch Size</label>
+                <label class="ecm_label" for="ecm_livestream_batch_size"><i class="fa-solid fa-boxes-stacked ecm_icon"></i> 每批弹幕条数</label>
                 <input id="ecm_livestream_batch_size" type="number" class="ecm_input ecm_input_sm" min="5" max="50" value="${s.livestreamBatchSize || 20}">
               </div>
               <div class="ecm_row">
-                <label class="ecm_label" for="ecm_livestream_min_wait"><i class="fa-solid fa-clock ecm_icon"></i> Min Wait (s)</label>
+                <label class="ecm_label" for="ecm_livestream_min_wait"><i class="fa-solid fa-clock ecm_icon"></i> 逐条显示最短间隔（秒）</label>
                 <input id="ecm_livestream_min_wait" type="number" class="ecm_input ecm_input_sm" min="1" max="120" value="${s.livestreamMinWait || 5}">
               </div>
               <div class="ecm_row">
-                <label class="ecm_label" for="ecm_livestream_max_wait"><i class="fa-solid fa-clock ecm_icon"></i> Max Wait (s)</label>
+                <label class="ecm_label" for="ecm_livestream_max_wait"><i class="fa-solid fa-clock ecm_icon"></i> 逐条显示最长间隔（秒）</label>
                 <input id="ecm_livestream_max_wait" type="number" class="ecm_input ecm_input_sm" min="1" max="300" value="${s.livestreamMaxWait || 60}">
               </div>
               <div class="ecm_subpanel_plain">
-                <div class="ecm_subpanel_title"><i class="fa-solid fa-clapperboard"></i> Generation Mode</div>
+                <div class="ecm_subpanel_title"><i class="fa-solid fa-clapperboard"></i> 何时调用模型生成新一批</div>
                 <label class="ecm_radio_row" for="ecm_ls_manual">
-                   <input type="radio" id="ecm_ls_manual" name="ecm_livestream_mode" value="manual"${(s.livestreamMode || 'manual') === 'manual' ? ' checked' : ''}><span>Manual (Regenerate Chat)</span>
+                   <input type="radio" id="ecm_ls_manual" name="ecm_livestream_mode" value="manual"${(s.livestreamMode || 'manual') === 'manual' ? ' checked' : ''}><span>仅手动生成（省钱）</span>
                  </label>
                  <label class="ecm_radio_row" for="ecm_ls_onmessage">
-                   <input type="radio" id="ecm_ls_onmessage" name="ecm_livestream_mode" value="onMessage"${s.livestreamMode === 'onMessage' ? ' checked' : ''}><span>On New Message</span>
+                   <input type="radio" id="ecm_ls_onmessage" name="ecm_livestream_mode" value="onMessage"${s.livestreamMode === 'onMessage' ? ' checked' : ''}><span>正文回复后生成一批</span>
                  </label>
                  <label class="ecm_radio_row" for="ecm_ls_oncomplete">
-                   <input type="radio" id="ecm_ls_oncomplete" name="ecm_livestream_mode" value="onComplete"${s.livestreamMode === 'onComplete' ? ' checked' : ''}><span>After Batch Completes</span>
+                   <input type="radio" id="ecm_ls_oncomplete" name="ecm_livestream_mode" value="onComplete"${s.livestreamMode === 'onComplete' ? ' checked' : ''}><span>播完继续生成（持续调用，额外计费）</span>
                  </label>
               </div>
             </div>
@@ -3856,30 +3885,30 @@ username: message
         <!-- CHAT PARTICIPATION -->
         <section class="ecm_section ecm_acc" id="ecm-sect-chat">
           <button class="ecm_acc_header" aria-expanded="false" type="button">
-            <span class="ecm_acc_title"><i class="fa-solid fa-reply"></i> Chat Participation</span>
+            <span class="ecm_acc_title"><i class="fa-solid fa-reply"></i> 参与弹幕</span>
             <i class="ecm_acc_chevron fa-solid fa-chevron-down"></i>
           </button>
           <div class="ecm_acc_body" hidden>
             <label class="ecm_row ecm_toggle_row" for="ecm_chat_enabled">
-              <span class="ecm_label">Enable Chat Participation</span>
+              <span class="ecm_label">启用发送弹幕</span>
               <input id="ecm_chat_enabled" type="checkbox" class="ecm_toggle"${s.chatEnabled !== false ? ' checked' : ''}>
             </label>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_chat_username"><i class="fa-solid fa-user ecm_icon"></i> Your Username</label>
-              <input id="ecm_chat_username" type="text" class="ecm_input" placeholder="Streamer (You)" value="${s.chatUsername || 'Streamer (You)'}">
+              <label class="ecm_label" for="ecm_chat_username"><i class="fa-solid fa-user ecm_icon"></i> 你的弹幕昵称</label>
+              <input id="ecm_chat_username" type="text" class="ecm_input" placeholder="主播（你）" value="${s.chatUsername || 'Streamer (You)'}">
             </div>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_chat_avatar_color"><i class="fa-solid fa-circle ecm_icon"></i> Avatar Color</label>
+              <label class="ecm_label" for="ecm_chat_avatar_color"><i class="fa-solid fa-circle ecm_icon"></i> 头像颜色</label>
               <div style="display:flex;align-items:center;gap:8px;">
                 <input id="ecm_chat_avatar_color" type="color" class="ecm_color_input" value="${s.chatAvatarColor || '#3b82f6'}" style="width:44px;height:36px;padding:2px;border-radius:6px;border:1px solid var(--ec-border);cursor:pointer;background:transparent;">
-                <span class="ecm_hint" style="margin:0;">Your avatar circle color</span>
+                <span class="ecm_hint" style="margin:0;">你的圆形头像颜色</span>
               </div>
             </div>
             <div class="ecm_row">
-              <label class="ecm_label" for="ecm_chat_reply_count"><i class="fa-solid fa-comments ecm_icon"></i> AI Replies per Comment</label>
+              <label class="ecm_label" for="ecm_chat_reply_count"><i class="fa-solid fa-comments ecm_icon"></i> 每次发言的 AI 回复数</label>
               <input id="ecm_chat_reply_count" type="number" class="ecm_input" min="1" max="12" value="${s.chatReplyCount || 3}" style="width:70px;">
             </div>
-            <div class="ecm_hint">Number of AI responses after a general comment (1–12). Direct @mentions always get a single reply.</div>
+            <div class="ecm_hint">普通发言生成 1～12 条回复，@某人只生成一条；发言回复也会调用弹幕接口。</div>
           </div>
         </section>
 
@@ -3888,12 +3917,12 @@ username: message
 
     <div class="ecm_footer">
       <div class="ecm_footer_left">
-        <button class="ecm_footer_btn" id="ecm_style_manager_btn"><i class="fa-solid fa-palette"></i> Style Manager</button>
-        <button class="ecm_footer_btn" id="ecm_import_btn"><i class="fa-solid fa-file-import"></i> Import</button>
+        <button class="ecm_footer_btn" id="ecm_style_manager_btn"><i class="fa-solid fa-palette"></i> 风格管理</button>
+        <button class="ecm_footer_btn" id="ecm_import_btn"><i class="fa-solid fa-file-import"></i> 导入</button>
         <input type="file" id="ecm_import_file" accept=".md" style="display:none;">
       </div>
       <div class="ecm_footer_right">
-        <button class="ecm_done_btn" id="ecm_done"><i class="fa-solid fa-check"></i> Done</button>
+        <button class="ecm_done_btn" id="ecm_done"><i class="fa-solid fa-check"></i> 完成</button>
       </div>
     </div>
 
@@ -3989,7 +4018,7 @@ username: message
                 settings.custom_styles[id] = { name: name, prompt: content };
                 saveSettings();
                 updateAllDropdowns();
-                if (typeof toastr !== 'undefined') toastr.success(`Imported style: ${name}`);
+                if (typeof toastr !== 'undefined') toastr.success(`已导入风格：${name}`);
             };
             reader.readAsText(file);
             this.value = '';
@@ -4299,9 +4328,9 @@ username: message
 
         // Header Left - Power button (enable/disable), Collapse arrow, and Live indicator
         const leftGroup = jQuery('<div class="ec_header_left"></div>');
-        const powerBtn = jQuery('<div class="ec_power_btn" title="Enable/Disable EchoChamber"><i class="fa-solid fa-power-off"></i></div>');
-        const collapseBtn = jQuery('<div class="ec_collapse_btn" title="Collapse/Expand Panel"><i class="fa-solid fa-chevron-down"></i></div>');
-        const liveIndicator = jQuery('<div class="ec_live_indicator" id="ec_live_indicator"><i class="fa-solid fa-circle"></i> LIVE</div>');
+        const powerBtn = jQuery('<div class="ec_power_btn" title="启用或关闭弹幕"><i class="fa-solid fa-power-off"></i></div>');
+        const collapseBtn = jQuery('<div class="ec_collapse_btn" title="折叠或展开弹幕"><i class="fa-solid fa-chevron-down"></i></div>');
+        const liveIndicator = jQuery('<div class="ec_live_indicator" id="ec_live_indicator"><i class="fa-solid fa-circle"></i> 播放</div>');
         leftGroup.append(powerBtn).append(collapseBtn).append(liveIndicator);
 
         // Header Right - All icon buttons (Refresh first, then layout, users, font)
@@ -4320,7 +4349,7 @@ username: message
         const settingsBtn = createBtn('fa-solid fa-gear', 'Settings', null);
 
         // Overflow button - shown in compact/mobile mode instead of individual buttons
-        const overflowBtn = jQuery('<div class="ec_btn ec_overflow_btn" title="Actions"><i class="fa-solid fa-ellipsis-vertical"></i></div>');
+        const overflowBtn = jQuery('<div class="ec_btn ec_overflow_btn" title="操作"><i class="fa-solid fa-ellipsis-vertical"></i></div>');
         // Build overflow menu detached from button and appended to body to avoid clipping
         jQuery('#ec_overflow_menu_body').remove();
         const overflowMenu = jQuery('<div id="ec_overflow_menu_body" class="ec_popup_menu ec_overflow_menu"></div>');
@@ -4348,8 +4377,8 @@ username: message
         const replyContainer = jQuery(`
         <div class="ec_reply_container" >
             <div class="ec_reply_wrapper">
-                <input type="text" class="ec_reply_input" placeholder="Type a message to participate..." id="ec_reply_field">
-                <div class="ec_reply_send" id="ec_reply_submit" title="Send message"><i class="fa-solid fa-paper-plane"></i></div>
+                <input type="text" class="ec_reply_input" placeholder="发一条弹幕参与聊天…" id="ec_reply_field">
+                <div class="ec_reply_send" id="ec_reply_submit" title="发送弹幕"><i class="fa-solid fa-paper-plane"></i></div>
             </div>
         </div>
     `);
@@ -4369,7 +4398,7 @@ username: message
         });
         // Add Pop Out option
         const popoutSelected = currentPos === 'popout' ? ' selected' : '';
-        layoutMenu.append(`<div class="ec_menu_item${popoutSelected}" data-val="popout" > <i class="fa-solid fa-arrow-up-right-from-square"></i> Pop Out</div> `);
+        layoutMenu.append(`<div class="ec_menu_item${popoutSelected}" data-val="popout" > <i class="fa-solid fa-arrow-up-right-from-square"></i> 悬浮窗口</div> `);
 
         // Populate User Count Menu with current selection highlighted
         const userMenu = usersBtn.find('.ec_user_menu');
@@ -4412,7 +4441,7 @@ username: message
         }
 
         // Direct action: Regenerate Chat (always visible at top)
-        overflowMenu.append(`<div class="ec_of_item ec_of_action" data-action="refresh"><i class="fa-solid fa-rotate-right"></i><span>Regenerate Chat</span></div>`);
+        overflowMenu.append(`<div class="ec_of_item ec_of_action" data-action="refresh"><i class="fa-solid fa-rotate-right"></i><span>重新生成弹幕</span></div>`);
         overflowMenu.append(`<div class="ec_of_divider_line"></div>`);
 
         // Accordion: Panel Position
@@ -4421,7 +4450,7 @@ username: message
             const sel = pos === currentPosOF ? ' ec_of_selected' : '';
             posBodies.append(`<div class="ec_of_chip ec_of_pos_chip${sel}" data-action="position" data-val="${pos}"><i class="fa-solid fa-arrow-${posIcons[pos]}"></i> ${pos.charAt(0).toUpperCase() + pos.slice(1)}</div>`);
         });
-        posBodies.append(`<div class="ec_of_chip ec_of_pos_chip" data-action="position" data-val="popout"><i class="fa-solid fa-arrow-up-right-from-square"></i> Pop Out</div>`);
+        posBodies.append(`<div class="ec_of_chip ec_of_pos_chip" data-action="position" data-val="popout"><i class="fa-solid fa-arrow-up-right-from-square"></i> 悬浮窗口</div>`);
         overflowMenu.append(makeAccordion('position', 'fa-table-columns', 'Panel Position', posBodies));
 
         // Accordion: User Count (2–20 by twos)
@@ -4442,8 +4471,8 @@ username: message
 
         // Bottom actions
         overflowMenu.append(`<div class="ec_of_divider_line"></div>`);
-        overflowMenu.append(`<div class="ec_of_item ec_of_action ec_of_danger" data-action="clear"><i class="fa-solid fa-trash-can"></i><span>Clear Chat &amp; Cache</span></div>`);
-        overflowMenu.append(`<div class="ec_of_item ec_of_action" data-action="settings"><i class="fa-solid fa-gear"></i><span>Settings</span></div>`);
+        overflowMenu.append(`<div class="ec_of_item ec_of_action ec_of_danger" data-action="clear"><i class="fa-solid fa-trash-can"></i><span>清空弹幕与缓存</span></div>`);
+        overflowMenu.append(`<div class="ec_of_item ec_of_action" data-action="settings"><i class="fa-solid fa-gear"></i><span>设置</span></div>`);
 
         // ---- Compact mode: measure-then-decide approach ----
         // To get accurate button widths, we must measure when buttons are visible.
@@ -4539,7 +4568,7 @@ username: message
 
         // Keep existing menu if present (main panel uses ec_indicator_menu appended to body)
         const existingMenu = el.find('.ec_indicator_menu');
-        el.html(`<i class="fa-solid fa-masks-theater" ></i> <span>Style: ${safeStyleName}</span> <i class="fa-solid fa-caret-down ec_dropdown_arrow"></i>`);
+        el.html(`<i class="fa-solid fa-masks-theater" ></i> <span>风格：${safeStyleName}</span> <i class="fa-solid fa-caret-down ec_dropdown_arrow"></i>`);
         if (existingMenu.length) el.append(existingMenu);
 
         // When updating the main indicator, also sync the floating panel style button
@@ -4653,10 +4682,10 @@ username: message
         const powerBtn = discordBar.find('.ec_power_btn');
         if (!settings.paused) {
             powerBtn.css('color', 'var(--ec-accent)');
-            powerBtn.attr('title', 'Toggle On/Off (Currently ON)');
+            powerBtn.attr('title', '关闭弹幕（当前已开启）');
         } else {
             powerBtn.css('color', 'rgba(255, 255, 255, 0.3)');
-            powerBtn.attr('title', 'Toggle On/Off (Currently OFF)');
+            powerBtn.attr('title', '开启弹幕（当前已关闭）');
         }
 
         // Update collapse button - shows collapsed state with arrow direction
@@ -4693,13 +4722,13 @@ username: message
 
         if (state === 'loading') {
             className += 'ec_live_loading';
-            title = 'Processing… click to cancel';
+            title = '正在生成 — 点击取消';
         } else if (settings.livestream) {
             className += 'ec_live_on';
-            title = 'LIVE — click to pause';
+            title = '播放中 — 点击暂停';
         } else {
             className += 'ec_live_off';
-            title = 'Click to enable Livestream';
+            title = '点击启用弹幕逐条播放';
         }
 
         if (indicator.length) {
@@ -4717,6 +4746,7 @@ username: message
     // Shared toggle logic — called by both the LIVE indicator and the settings checkbox
     async function toggleLivestream(enable) {
         const wasEnabled = settings.livestream;
+        if (enable) continuousRefills = 0;
         settings.livestream = enable;
         saveSettings();
 
@@ -5040,7 +5070,7 @@ username: message
                     if (confirmed) {
                         setDiscordText('');
                         clearCachedCommentary();
-                        if (typeof toastr !== 'undefined') toastr.success('Chat and cache cleared');
+                        if (typeof toastr !== 'undefined') toastr.success('弹幕与缓存已清空');
                     }
                 });
             } else if (btn.find('.fa-gear').length) {
@@ -5058,15 +5088,15 @@ username: message
             jQuery('.ec_btn').removeClass('open active');
             jQuery('.ec_popup_menu').hide().css({ top: '', bottom: '', left: '', right: '', position: '' });
             if (action === 'refresh') {
-                jQuery('.ec_btn[title="Regenerate Chat"] i').addClass('fa-spin');
-                setTimeout(() => jQuery('.ec_btn[title="Regenerate Chat"] i').removeClass('fa-spin'), 1000);
+                jQuery('.ec_btn[title="重新生成弹幕"] i').addClass('fa-spin');
+                setTimeout(() => jQuery('.ec_btn[title="重新生成弹幕"] i').removeClass('fa-spin'), 1000);
                 generateDiscordChat(true);
             } else if (action === 'clear') {
                 showConfirmModal('Clear all generated chat messages and cached commentary?').then(confirmed => {
                     if (confirmed) {
                         setDiscordText('');
                         clearCachedCommentary();
-                        if (typeof toastr !== 'undefined') toastr.success('Chat and cache cleared');
+                        if (typeof toastr !== 'undefined') toastr.success('弹幕与缓存已清空');
                     }
                 });
             } else if (action === 'settings') {
@@ -5239,7 +5269,7 @@ username: message
                 // Show toast notification about style change
                 const styleObj = getAllStyles().find(s => s.val === val);
                 const styleName = styleObj ? styleObj.label : val;
-                if (typeof toastr !== 'undefined') toastr.info(`Style: ${styleName} `);
+                if (typeof toastr !== 'undefined') toastr.info(`风格：${styleName} `);
             } else if (parent.hasClass('ec_layout_menu')) {
                 if (val === 'popout') {
                     // Open popout window
@@ -5561,7 +5591,7 @@ username: message
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            if (typeof toastr !== 'undefined') toastr.success(`Style "${styleName}" exported!`);
+            if (typeof toastr !== 'undefined') toastr.success(`已导出风格“${styleName}”`);
         });
 
         jQuery(document).on('change', '#discord_import_file', function () {
@@ -5579,7 +5609,7 @@ username: message
                 saveSettings();
                 updateAllDropdowns();
 
-                if (typeof toastr !== 'undefined') toastr.success(`Imported style: ${name} `);
+                if (typeof toastr !== 'undefined') toastr.success(`已导入风格：${name} `);
                 log('Imported style:', id);
             };
             reader.readAsText(file);
@@ -5731,6 +5761,13 @@ username: message
                 });
             }
             window.EchoChamberColors.start(settings,saveSettings);
+            await new Promise((resolve,reject) => {
+                const script=document.createElement('script');
+                script.src=BASE_URL+'/cost-controls.js?v=20261020-zh';
+                script.onload=resolve; script.onerror=reject;
+                document.head.append(script);
+            });
+            window.EchoChamberCostControls.start(settings,saveSettings);
         } catch(err) { error('Appearance controls failed to load:',err); }
         renderPanel();
 
