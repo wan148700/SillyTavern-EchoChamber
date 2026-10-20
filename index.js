@@ -4578,6 +4578,7 @@ username: message
         const bgWithOpacity = `rgba(20, 20, 25, ${opacity})`;
         const headerBgWithOpacity = `rgba(0, 0, 0, ${opacity * 0.3})`;
         discordBar.css('background', bgWithOpacity);
+        discordBar.css('--ec-panel-opacity', opacity);
         discordQuickBar.css('background', headerBgWithOpacity);
 
         if (pos === 'bottom') {
@@ -5349,6 +5350,7 @@ username: message
                 const bgWithOpacity = `rgba(20, 20, 25, ${opacity})`;
                 const headerBgWithOpacity = `rgba(0, 0, 0, ${opacity * 0.3})`;
                 discordBar.css('background', bgWithOpacity);
+        discordBar.css('--ec-panel-opacity', opacity);
                 discordQuickBar.css('background', headerBgWithOpacity);
             }
             saveSettings();
